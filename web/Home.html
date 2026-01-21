@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<h2>📶 Configuration WiFi</h2>
+
+<!-- 📡 État WiFi -->
+<div class="card">
+  <h3>📡 État de la connexion</h3>
+
+  <div class="info-line">
+    <div>État :</div>
+    <span id="Connected">--</span>
+  </div>
+
+  <div class="info-line">
+    <div>Réseau :</div>
+    <span id="CurrentSSID">--</span>
+  </div>
+
+  <div class="info-line">
+    <div>Signal :</div>
+    <span><span id="Rssi">--</span> dBm</span>
+  </div>
+
+  <div class="info-line">
+    <div>IP locale :</div>
+    <span id="Ip">--</span>
+  </div>
+</div>
+
+<!-- 🔍 Scan WiFi -->
+<div class="card">
+  <h3>🔍 Réseaux disponibles</h3>
+  <button class="btn btn-blue" id="ScanBtn" onclick="ScanWifi()">🔍 Scanner WiFi</button>
+  <div id="ScanSpinner" class="spinner"></div>
+  <p id="ScanStatus" class="hidden">Scan en cours...</p>
+  <select id="Ssid"></select>
+  <input type="password" id="Pass" placeholder="Mot de passe">
+  <button class="btn btn-blue" onclick="SaveWifi()">💾 Enregistrer</button>
+</div>
+
+<!-- ⬅ Retour -->
+<div class="card">
+  <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+<script src="/Home.js"></script>
+
+</body>
+</html>
