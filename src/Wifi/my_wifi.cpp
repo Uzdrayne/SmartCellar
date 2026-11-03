@@ -45,6 +45,7 @@ void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
             Set_WifiIsSTA(true);
             WifiSTA_OK = false;
+            Set_MqttConnected(false);
             xSemaphoreTake(DataMutex, portMAX_DELAY);
             DataWifi.WifiConnected = false;
             xSemaphoreGive(DataMutex);
@@ -77,6 +78,7 @@ void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
             Set_WifiIsSTA(false);
             WifiSTA_OK = false;
             TryingWifi = false;
+            Set_MqttConnected(false);
             xSemaphoreTake(DataMutex, portMAX_DELAY);
             DataWifi.WifiConnected = true;
             xSemaphoreGive(DataMutex);
@@ -86,6 +88,7 @@ void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
             break;
 
         case ARDUINO_EVENT_WIFI_AP_STOP:
+            Set_MqttConnected(false);
             xSemaphoreTake(DataMutex, portMAX_DELAY);
             DataWifi.WifiConnected = false;
             xSemaphoreGive(DataMutex);

@@ -47,13 +47,12 @@ void ui_ScreenWifi_screen_init(void)
 {
     ui_ScreenWifi = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_ScreenWifi, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_img_src(ui_ScreenWifi, &ui_img_s_back_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_ScreenWifi, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_ScreenWifi, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_SpinnerWifiAP = lv_spinner_create(ui_ScreenWifi, 1000, 90);
     lv_obj_set_width(ui_SpinnerWifiAP, 240);
     lv_obj_set_height(ui_SpinnerWifiAP, 240);
-    lv_obj_set_x(ui_SpinnerWifiAP, 0);
-    lv_obj_set_y(ui_SpinnerWifiAP, -1);
     lv_obj_set_align(ui_SpinnerWifiAP, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_SpinnerWifiAP, LV_OBJ_FLAG_CLICKABLE);      /// Flags
     lv_obj_set_style_border_width(ui_SpinnerWifiAP, 0, LV_PART_MAIN | LV_STATE_DEFAULT);

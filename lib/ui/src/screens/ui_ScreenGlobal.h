@@ -15,6 +15,7 @@ extern void ui_ScreenGlobal_screen_init(void);
 extern void ui_ScreenGlobal_screen_destroy(void);
 extern void ui_event_ScreenGlobal(lv_event_t * e);
 extern lv_obj_t * ui_ScreenGlobal;
+extern lv_obj_t * ui_SpinnerGlob;
 extern lv_obj_t * ui_LabelGlobWifi;
 extern lv_obj_t * ui_LabelGlobLink;
 extern lv_obj_t * ui_LabelGlobDate;
@@ -24,21 +25,13 @@ extern lv_obj_t * ui_LabelGlobSetTemp;
 extern lv_obj_t * ui_LabelGlobCurrentHum;
 extern lv_obj_t * ui_LabelGlobPctSetHum;
 extern lv_obj_t * ui_LabelGlobSetHum;
-extern lv_obj_t * ui_SwitchGlobColdState;
 extern lv_obj_t * ui_SwitchGlobHeatState;
+extern lv_obj_t * ui_SwitchGlobColdState;
 extern lv_obj_t * ui_SwitchGlobHumState;
 extern lv_obj_t * ui_SwitchGlobDehumState;
 extern lv_obj_t * ui_SwitchGlobFanState;
-extern lv_obj_t * ui_Image9;
-extern lv_obj_t * ui_Image15;
-extern lv_obj_t * ui_Image13;
-extern lv_obj_t * ui_Image12;
-extern lv_obj_t * ui_Image11;
-extern lv_obj_t * ui_Image1;
-extern lv_obj_t * ui_Image3;
-extern lv_obj_t * ui_Image4;
-extern lv_obj_t * ui_Image2;
-extern lv_obj_t * ui_SpinnerGlob;
+extern lv_obj_t * ui_LabelGlobSetTemp1;
+extern lv_obj_t * ui_LabelGlobSetTemp2;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

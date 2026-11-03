@@ -26,6 +26,9 @@ void setup()
   my_TouchScreen_Init();
   tft.setBrightness(10);
   ui_init();
+  Initialize_ScreenTemp();
+  Initialize_ScreenHum();
+  Initialize_ScreenFan();
   tft.setBrightness(ScreenUserBrightness);
   UiReady = true;
   ConnectToWifi();
@@ -39,22 +42,15 @@ void loop() {
   if (TryingWifi) {
     if (WifiSTA_OK) {
       TryingWifi = false;
-      if (lv_scr_act() != ui_ScreenGlobal) {
-        _ui_screen_change(&ui_ScreenGlobal, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenGlobal_screen_init);
-      }
     } else if (now - WifiAttemptStart > 60000) {
       Serial.println("Timeout WiFi");
       TryingWifi = false;
       StartAccessPoint();
-      if (lv_scr_act() != ui_ScreenWifi) {
-        _ui_screen_change(&ui_ScreenWifi, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenWifi_screen_init);
-      }
     }
-  } else if (!WifiSTA_OK && lv_scr_act() != ui_ScreenWifi) {
-    _ui_screen_change(&ui_ScreenWifi, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenWifi_screen_init);
   }
 
   ProcessSerialLink(now);
+  
   UpdateController();
 
   if ((now - lastJson) >= 250) {

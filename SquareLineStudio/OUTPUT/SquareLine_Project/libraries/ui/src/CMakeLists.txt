@@ -3,18 +3,21 @@ SET(SOURCES screens/ui_ScreenGlobal.c
     screens/ui_ScreenHum.c
     screens/ui_ScreenFan.c
     screens/ui_ScreenWifi.c
+    screens/ui_Screen1.c
     ui.c
     components/ui_comp_hook.c
     ui_helpers.c
-    images/ui_img_s_back_png.c
-    images/ui_img_s_fire_png.c
-    images/ui_img_s_wireless2_png.c
-    images/ui_img_s_snowflake_png.c
-    images/ui_img_s_sweat_drops_png.c
-    images/ui_img_s_dash_png.c
-    images/ui_img_s_fan_png.c
-    images/ui_img_s_link_png.c
-    images/ui_img_s_dart_png.c
-    images/ui_img_s_droplet_png.c)
+    images/ui_img_chaud_off_png.c
+    images/ui_img_chaud_on_png.c
+    images/ui_img_froid_off_png.c
+    images/ui_img_froid_on_png.c
+    images/ui_img_humidite_off_png.c
+    images/ui_img_humidite_on_png.c
+    images/ui_img_deshumidificateur_off_png.c
+    images/ui_img_deshumidificateur_on_png.c
+    images/ui_img_ventilation_off_png.c
+    images/ui_img_ventilation_on_png.c
+    images/ui_img_cadenas_ferme_off_png.c
+    images/ui_img_cadenas_ouvert_on_png.c)
 
 add_library(ui ${SOURCES})

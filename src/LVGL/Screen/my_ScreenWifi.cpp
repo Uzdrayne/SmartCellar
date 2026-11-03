@@ -64,7 +64,7 @@ void Refresh_ScreenWifi() {
     if (WiFi.status() == WL_CONNECTED) {
         formatIpAddress(localIpText, sizeof(localIpText), WiFi.localIP());
     } else {
-        snprintf(localIpText, sizeof(localIpText), "Non connecté");
+        snprintf(localIpText, sizeof(localIpText), "Not connected");
     }
 
     setLabelTextIfChanged(ui_LabelIP, apIpText);

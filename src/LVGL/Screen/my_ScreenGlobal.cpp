@@ -42,23 +42,22 @@ void ScreenGlobal_Loaded(lv_event_t * e){
 
 
 void Refresh_ScreenGlobal(){
-    StrctDataController localData;
-    xSemaphoreTake(DataMutex, portMAX_DELAY);
-    localData = DataController;
-    xSemaphoreGive(DataMutex);
+    const StrctDataController localData = GetControllerSnapshot();
 
     //wifi
     if(WiFi.status() == WL_CONNECTED){
         lv_obj_set_style_text_color(ui_LabelGlobWifi, lv_color_make(0, 200, 0),0);
-        lv_label_set_text(ui_LabelGlobWifi, "Wifi OK");
-    }
-    else{
+        lv_label_set_text(ui_LabelGlobWifi, "STA OK");
+    } else if ((WiFi.getMode() & WIFI_AP) != 0) {
+        lv_obj_set_style_text_color(ui_LabelGlobWifi, lv_color_make(220, 160, 0),0);
+        lv_label_set_text(ui_LabelGlobWifi, "Mode AP");
+    } else {
         lv_obj_set_style_text_color(ui_LabelGlobWifi, lv_color_make(200, 0, 0),0);
-        lv_label_set_text(ui_LabelGlobWifi, "NO Wifi");
+        lv_label_set_text(ui_LabelGlobWifi, "Sans reseau");
     }
 
     
-    const bool sensorReady = !isnan(localData.Temperature) && !isnan(localData.Humidity);
+    const bool sensorReady = HasValidControllerMeasurements(localData);
     refreshDateLabel();
     set_switch_state(ui_SwitchGlobFanState, localData.FanState);
     if(sensorReady) {
@@ -91,19 +90,18 @@ void Refresh_ScreenGlobal(){
         lv_label_set_text(ui_LabelGlobLink, "Capteur indisponible");
         lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0xFF0000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
-        //Temp
         lv_label_set_text(ui_LabelGlobCurrentTemp, "--.--");
-        lv_label_set_text(ui_LabelGlobSetTemp, "--.--");
+        sprintf(bufftext,"%05.2f°C",localData.SetTemp);
 
-        //Hum
+        lv_label_set_text(ui_LabelGlobSetTemp, bufftext);
         lv_label_set_text(ui_LabelGlobCurrentHum, "--.-");
-        lv_label_set_text(ui_LabelGlobSetHum, "--.-"); 
+        sprintf(bufftext,"%04.1f%%",localData.SetHum);
+        lv_label_set_text(ui_LabelGlobSetHum, bufftext);
 
-        //Relais
-        set_switch_state(ui_SwitchGlobColdState,false);
-        set_switch_state(ui_SwitchGlobHeatState,false);
-        set_switch_state(ui_SwitchGlobDehumState,false);
-        set_switch_state(ui_SwitchGlobHumState,false);
+        set_switch_state(ui_SwitchGlobColdState,localData.ColdState);
+        set_switch_state(ui_SwitchGlobHeatState,localData.HeatState);
+        set_switch_state(ui_SwitchGlobDehumState,localData.DehumState);
+        set_switch_state(ui_SwitchGlobHumState,localData.HumState);
 
     }
 

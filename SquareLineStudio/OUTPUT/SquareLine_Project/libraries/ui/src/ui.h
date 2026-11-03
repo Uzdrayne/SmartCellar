@@ -32,6 +32,7 @@ extern "C" {
 #include "screens/ui_ScreenHum.h"
 #include "screens/ui_ScreenFan.h"
 #include "screens/ui_ScreenWifi.h"
+#include "screens/ui_Screen1.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -41,16 +42,18 @@ extern "C" {
 extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
-LV_IMG_DECLARE(ui_img_s_back_png);    // assets/S_BAck.png
-LV_IMG_DECLARE(ui_img_s_fire_png);    // assets/S_fire.png
-LV_IMG_DECLARE(ui_img_s_wireless2_png);    // assets/s_wireless2.png
-LV_IMG_DECLARE(ui_img_s_snowflake_png);    // assets/S_snowflake.png
-LV_IMG_DECLARE(ui_img_s_sweat_drops_png);    // assets/S_sweat_drops.png
-LV_IMG_DECLARE(ui_img_s_dash_png);    // assets/S_dash.png
-LV_IMG_DECLARE(ui_img_s_fan_png);    // assets/S_Fan.png
-LV_IMG_DECLARE(ui_img_s_link_png);    // assets/S_link.png
-LV_IMG_DECLARE(ui_img_s_dart_png);    // assets/S_dart.png
-LV_IMG_DECLARE(ui_img_s_droplet_png);    // assets/S_droplet.png
+LV_IMG_DECLARE(ui_img_chaud_off_png);    // assets/chaud_off.png
+LV_IMG_DECLARE(ui_img_chaud_on_png);    // assets/chaud_on.png
+LV_IMG_DECLARE(ui_img_froid_off_png);    // assets/froid_off.png
+LV_IMG_DECLARE(ui_img_froid_on_png);    // assets/froid_on.png
+LV_IMG_DECLARE(ui_img_humidite_off_png);    // assets/humidite_off.png
+LV_IMG_DECLARE(ui_img_humidite_on_png);    // assets/humidite_on.png
+LV_IMG_DECLARE(ui_img_deshumidificateur_off_png);    // assets/deshumidificateur_off.png
+LV_IMG_DECLARE(ui_img_deshumidificateur_on_png);    // assets/deshumidificateur_on.png
+LV_IMG_DECLARE(ui_img_ventilation_off_png);    // assets/ventilation_off.png
+LV_IMG_DECLARE(ui_img_ventilation_on_png);    // assets/ventilation_on.png
+LV_IMG_DECLARE(ui_img_cadenas_ferme_off_png);    // assets/cadenas_ferme_off.png
+LV_IMG_DECLARE(ui_img_cadenas_ouvert_on_png);    // assets/cadenas_ouvert_on.png
 
 // UI INIT
 void ui_init(void);

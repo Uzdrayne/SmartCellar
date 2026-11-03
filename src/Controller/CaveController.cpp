@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <string.h>
 #include "SerialLink/SerialLink.h"
+#include "Controller/ControllerValidation.h"
 
 namespace {
 
@@ -192,6 +193,19 @@ void UpdateController() {
         LocalData.Temperature + (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
     const float actualHumidityCorr =
         LocalData.Humidity + (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
+    const bool temperatureValid =
+        isfinite(LocalData.Temperature) &&
+        isfinite(actualTemperatureCorr) &&
+        actualTemperatureCorr >= -40.0f &&
+        actualTemperatureCorr <= 80.0f;
+    const bool humidityValid =
+        isfinite(LocalData.Humidity) &&
+        isfinite(actualHumidityCorr) &&
+        actualHumidityCorr >= 0.0f &&
+        actualHumidityCorr <= 100.0f;
+    const bool settingsValid = IsValidControllerConfiguration(LocalData);
+    const bool controlInputsValid =
+        settingsValid && temperatureValid && humidityValid;
 
     const unsigned long ColdElapsed = now - ColdLastChangeTime;
     const unsigned long HeatElapsed = now - HeatLastChangeTime;
@@ -228,7 +242,7 @@ void UpdateController() {
     }
     FanWasEnabled = LocalData.FanEnabled;
 
-    if (!isnan(LocalData.Temperature)) {
+    if (controlInputsValid) {
         const RelayDecision cold = evaluateRelay(
             LocalData.ColdState,
             actualTemperatureCorr,
@@ -280,16 +294,6 @@ void UpdateController() {
             LocalData.SetTemp + LocalData.HeatHysHigh,
             false,
             heat);
-    } else {
-        LocalData.ColdState = false;
-        LocalData.HeatState = false;
-        snprintf(LocalData.ColdDebugMsg, sizeof(LocalData.ColdDebugMsg),
-                 "⚠️ Froid — ARRÊT; capteur de température en erreur");
-        snprintf(LocalData.HeatDebugMsg, sizeof(LocalData.HeatDebugMsg),
-                 "⚠️ Chauffage — ARRÊT; capteur de température en erreur");
-    }
-
-    if (!isnan(LocalData.Humidity)) {
         const RelayDecision dehum = evaluateRelay(
             LocalData.DehumState,
             actualHumidityCorr,
@@ -350,14 +354,19 @@ void UpdateController() {
         LocalData.HeatState = false;
         LocalData.DehumState = false;
         LocalData.HumState = false;
+        const char* faultReason = !settingsValid
+            ? "paramètres de régulation invalides"
+            : (!temperatureValid
+                ? "mesure température corrigée invalide"
+                : "mesure humidité corrigée invalide");
         snprintf(LocalData.ColdDebugMsg, sizeof(LocalData.ColdDebugMsg),
-                 "⚠️ Froid — ARRÊT; capteur d'humidité en erreur");
+                 "⚠️ Froid — ARRÊT; %s", faultReason);
         snprintf(LocalData.HeatDebugMsg, sizeof(LocalData.HeatDebugMsg),
-                 "⚠️ Chauffage — ARRÊT; capteur d'humidité en erreur");
+                 "⚠️ Chauffage — ARRÊT; %s", faultReason);
         snprintf(LocalData.DehumDebugMsg, sizeof(LocalData.DehumDebugMsg),
-                 "⚠️ Déshumidification — ARRÊT; capteur d'humidité en erreur");
+                 "⚠️ Déshumidification — ARRÊT; %s", faultReason);
         snprintf(LocalData.HumDebugMsg, sizeof(LocalData.HumDebugMsg),
-                 "⚠️ Humidification — ARRÊT; capteur d'humidité en erreur");
+                 "⚠️ Humidification — ARRÊT; %s", faultReason);
     }
 
     xSemaphoreTake(DataMutex, portMAX_DELAY);

@@ -6,8 +6,8 @@
 #include "../ui.h"
 
 lv_obj_t * ui_ScreenFan = NULL;
+lv_obj_t * ui_SwitchLockFan = NULL;
 lv_obj_t * ui_SwitchFanState = NULL;
-lv_obj_t * ui_Image16 = NULL;
 // event funtions
 void ui_event_ScreenFan(lv_event_t * e)
 {
@@ -29,27 +29,46 @@ void ui_ScreenFan_screen_init(void)
 {
     ui_ScreenFan = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_ScreenFan, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_img_src(ui_ScreenFan, &ui_img_s_back_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_ScreenFan, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_ScreenFan, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_SwitchLockFan = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_SwitchLockFan, 50);
+    lv_obj_set_height(ui_SwitchLockFan, 31);
+    lv_obj_set_x(ui_SwitchLockFan, 80);
+    lv_obj_set_y(ui_SwitchLockFan, 4);
+    lv_obj_set_align(ui_SwitchLockFan, LV_ALIGN_CENTER);
+    lv_obj_set_style_bg_img_src(ui_SwitchLockFan, &ui_img_cadenas_ferme_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_SwitchLockFan, &ui_img_cadenas_ouvert_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_SwitchLockFan, lv_color_hex(0x59AFEA), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_SwitchLockFan, 120, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_SwitchLockFan, lv_color_hex(0x111111), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_SwitchLockFan, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
     ui_SwitchFanState = lv_switch_create(ui_ScreenFan);
-    lv_obj_set_width(ui_SwitchFanState, 50);
-    lv_obj_set_height(ui_SwitchFanState, 25);
-    lv_obj_set_x(ui_SwitchFanState, 10);
-    lv_obj_set_y(ui_SwitchFanState, 85);
+    lv_obj_set_width(ui_SwitchFanState, 24);
+    lv_obj_set_height(ui_SwitchFanState, 24);
+    lv_obj_set_x(ui_SwitchFanState, 0);
+    lv_obj_set_y(ui_SwitchFanState, 95);
     lv_obj_set_align(ui_SwitchFanState, LV_ALIGN_CENTER);
+    lv_obj_add_state(ui_SwitchFanState, LV_STATE_CHECKED);       /// States
     lv_obj_clear_flag(ui_SwitchFanState,
-                      LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
                       LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_SwitchFanState, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_SwitchFanState, &ui_img_ventilation_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_SwitchFanState, &ui_img_ventilation_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
 
-    ui_Image16 = lv_img_create(ui_ScreenFan);
-    lv_img_set_src(ui_Image16, &ui_img_s_fan_png);
-    lv_obj_set_width(ui_Image16, LV_SIZE_CONTENT);   /// 25
-    lv_obj_set_height(ui_Image16, LV_SIZE_CONTENT);    /// 25
-    lv_obj_set_x(ui_Image16, -35);
-    lv_obj_set_y(ui_Image16, 85);
-    lv_obj_set_align(ui_Image16, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_Image16, LV_OBJ_FLAG_CLICKABLE);     /// Flags
-    lv_obj_clear_flag(ui_Image16, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_ScreenFan, ui_event_ScreenFan, LV_EVENT_ALL, NULL);
 
@@ -61,7 +80,7 @@ void ui_ScreenFan_screen_destroy(void)
 
     // NULL screen variables
     ui_ScreenFan = NULL;
+    ui_SwitchLockFan = NULL;
     ui_SwitchFanState = NULL;
-    ui_Image16 = NULL;
 
 }

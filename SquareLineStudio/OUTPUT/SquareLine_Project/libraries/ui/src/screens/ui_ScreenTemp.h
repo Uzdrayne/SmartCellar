@@ -21,11 +21,9 @@ extern lv_obj_t * ui_LabelCurrentTemp;
 extern lv_obj_t * ui_LabelDegCurrTemp;
 extern lv_obj_t * ui_LabelSetTemp;
 extern lv_obj_t * ui_LabelDegSetTemp;
-extern lv_obj_t * ui_SwitchColdState;
+extern lv_obj_t * ui_SwitchLockTemp;
 extern lv_obj_t * ui_SwitchHeatState;
-extern lv_obj_t * ui_Image5;
-extern lv_obj_t * ui_Image6;
-extern lv_obj_t * ui_Image10;
+extern lv_obj_t * ui_SwitchColdState;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

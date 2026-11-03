@@ -5,6 +5,7 @@
 #include <HomeAssistantMQTT.h>
 
 #include "Data/ControllerData.h"
+#include "Controller/ControllerValidation.h"
 
 
 //#define  DEBUG
@@ -260,23 +261,34 @@ void HAMQTT_Callback(String item, String payload, bool readFromMQTT){
 
     if(item == "ConsigneTemperature")
     {
-        float val = payload.toFloat();
+        float val;
+        if (!ParseFiniteFloat(payload, val) || !IsValidTemperatureSetpoint(val)) {
+            Serial.printf("MQTT : consigne temperature invalide: %s\n", payload.c_str());
+            return;
+        }
 
-        if(val != LocalData.SetTemp) {
-            xSemaphoreTake(DataMutex, portMAX_DELAY);
-            DataController.SetTemp=val;
-            xSemaphoreGive(DataMutex);
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        const bool changed = DataController.SetTemp != val;
+        DataController.SetTemp = val;
+        xSemaphoreGive(DataMutex);
+        if (changed) {
             Serial.printf("MQTT : SetTemp updated to %.2f\n", val);
         }
 
     }
     else if(item == "ConsigneHumidity")
     {
-        float val = payload.toFloat();
-        if(val != LocalData.SetHum) {
-            xSemaphoreTake(DataMutex, portMAX_DELAY);
-            DataController.SetHum=val;
-            xSemaphoreGive(DataMutex);
+        float val;
+        if (!ParseFiniteFloat(payload, val) || !IsValidHumiditySetpoint(val)) {
+            Serial.printf("MQTT : consigne humidite invalide: %s\n", payload.c_str());
+            return;
+        }
+
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        const bool changed = DataController.SetHum != val;
+        DataController.SetHum = val;
+        xSemaphoreGive(DataMutex);
+        if (changed) {
             Serial.printf("MQTT : SetHum updated to %.2f\n", val);
         }
     }

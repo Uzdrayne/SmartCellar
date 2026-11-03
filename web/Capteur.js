@@ -61,9 +61,18 @@ function UpdateStatus() {
 function SaveCapteurCalibration() {
   // Récupération des valeurs de la page
   const TempEnabled = document.getElementById("EnableTempOffset").checked ? 1 : 0;
-  const TempValue   = parseFloat(document.getElementById("TempOffset").value) || 0;
+  const TempInputValue = document.getElementById("TempOffset").value;
+  const TempValue = Number(TempInputValue);
   const HumEnabled  = document.getElementById("EnableHumOffset").checked ? 1 : 0;
-  const HumValue    = parseFloat(document.getElementById("HumOffset").value) || 0;
+  const HumInputValue = document.getElementById("HumOffset").value;
+  const HumValue = Number(HumInputValue);
+
+  if (TempInputValue.trim() === "" || HumInputValue.trim() === "" ||
+      !Number.isFinite(TempValue) || Math.abs(TempValue) > 5 ||
+      !Number.isFinite(HumValue) || Math.abs(HumValue) > 10) {
+    alert("Calibration invalide : offset température ±5 °C, humidité ±10 points.");
+    return;
+  }
 
   // Préparation des données pour POST
   const bodyData = `TempEnabled=${TempEnabled}&TempValue=${TempValue}&HumEnabled=${HumEnabled}&HumValue=${HumValue}`;
@@ -74,7 +83,11 @@ function SaveCapteurCalibration() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: bodyData
   })
-  .then(r => r.text())
+  .then(async r => {
+    const text = await r.text();
+    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+    return text;
+  })
   .then(txt => {
     alert(txt);
 
@@ -82,7 +95,10 @@ function SaveCapteurCalibration() {
     UserCalibChanged = false;
     UpdateStatus();
   })
-  .catch(err => console.error("Erreur lors de la sauvegarde de la calibration :", err));
+  .catch(err => {
+    console.error("Erreur lors de la sauvegarde de la calibration :", err);
+    alert(`Échec de la sauvegarde : ${err.message}`);
+  });
 }
 
 function UndoChangesCalib() {
@@ -94,4 +110,3 @@ function UndoChangesCalib() {
 
 setInterval(UpdateStatus,1000);
 UpdateStatus();
-

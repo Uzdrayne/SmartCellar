@@ -155,14 +155,14 @@ bool Get_MqttConnected();
 
 
 //sauvegarder dans preferences
-void Save_SetTemp_and_SetHum();
+bool Save_SetTemp_and_SetHum();
 void Save_Wifi_Parameters();
 void Save_Mqtt_Parameters();
-void Save_SensorOffset();
-void Save_ColdHardware();
-void Save_HeatHardware();
-void Save_DehumHardware();
-void Save_HumHardware();
+bool Save_SensorOffset();
+bool Save_ColdHardware();
+bool Save_HeatHardware();
+bool Save_DehumHardware();
+bool Save_HumHardware();
 void Save_FanSettings();
 
 

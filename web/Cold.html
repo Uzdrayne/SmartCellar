@@ -20,13 +20,13 @@
 
         <div class="card">
             <h3>📈 Seuil Haut (°C)</h3>
-            <input type="number" id="HysHigh" step="0.05" placeholder="°C">
+            <input type="number" id="HysHigh" min="0" max="5" step="0.05" placeholder="°C">
             <p>Delta par rapport à la consigne pour activer le froid.</p>
         </div>
 
         <div class="card">
             <h3>📉​ Seuil Bas (°C)</h3>
-            <input type="number" id="HysLow" step="0.05" placeholder="°C">
+            <input type="number" id="HysLow" min="0" max="5" step="0.05" placeholder="°C">
             <p>Delta par rapport à la consigne pour désactiver le froid.</p>
         </div>
         
@@ -46,14 +46,14 @@
 
         <div class="card">
             <h3>1️⃣​ Délai Mini ON (s)</h3>
-            <input type="number" id="DelayMinOn"  min="0" step="1" placeholder="s">
-            <p>Durée minimale pendant laquelle le froid reste activé.</p>
+            <input type="number" id="DelayMinOn" min="5" max="1800" step="1" placeholder="s">
+            <p>Durée minimale pendant laquelle le froid reste activé (5 à 1800 s).</p>
         </div>
 
         <div class="card">
             <h3>🅾️ Délai Mini OFF (s)</h3>
-            <input type="number" id="DelayMinOff"  min="0" step="1" placeholder="s">
-            <p>Durée minimale avant que le froid puisse se rallumer.</p>
+            <input type="number" id="DelayMinOff" min="5" max="1800" step="1" placeholder="s">
+            <p>Durée minimale avant que le froid puisse se rallumer (5 à 1800 s).</p>
         </div>
       
     </div>
@@ -149,14 +149,18 @@ function UpdateDetailSeuil(){
 function savemodification() {
 
     // Récupération des valeurs de la page
-    const HysHigh = parseFloat(HysHighInput.value) || 0;
-    const HysLow  = parseFloat(HysLowInput.value) || 0;
+    const HysHigh = Number(HysHighInput.value);
+    const HysLow = Number(HysLowInput.value);
+    const DelayMinOn = Number(DelayMinOnInput.value);
+    const DelayMinOff = Number(DelayMinOffInput.value);
 
-    let DelayMinOn = parseInt(DelayMinOnInput.value);
-    DelayMinOn = (isNaN(DelayMinOn) || DelayMinOn < 0) ? 0 : DelayMinOn;
-
-    let DelayMinOff = parseInt(DelayMinOffInput.value);
-    DelayMinOff = (isNaN(DelayMinOff) || DelayMinOff < 0) ? 0 : DelayMinOff;
+    if (HysHighInput.value.trim() === "" || HysLowInput.value.trim() === "" ||
+        ![HysHigh, HysLow, DelayMinOn, DelayMinOff].every(Number.isFinite) ||
+        !Number.isInteger(DelayMinOn) || !Number.isInteger(DelayMinOff) ||
+        DelayMinOn < 5 || DelayMinOn > 1800 || DelayMinOff < 5 || DelayMinOff > 1800) {
+        alert("Valeurs invalides : hystérésis requise et délais compris entre 5 et 1800 secondes.");
+        return;
+    }
 
     // Calcul des seuils réels
     const ValH = ConsigneTemp + HysHigh;
@@ -182,7 +186,11 @@ function savemodification() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: bodyData
     })
-    .then(r => r.text())
+    .then(async r => {
+        const text = await r.text();
+        if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+        return text;
+    })
     .then(txt => {
         alert(txt);
 
@@ -191,7 +199,10 @@ function savemodification() {
         UserChanged = false;
         ApplyBtnEnable();
     })
-    .catch(err => console.error("Erreur lors de la sauvegarde des paramètres froid :", err));
+    .catch(err => {
+        console.error("Erreur lors de la sauvegarde des paramètres froid :", err);
+        alert(`Échec de la sauvegarde : ${err.message}`);
+    });
 }
 
 

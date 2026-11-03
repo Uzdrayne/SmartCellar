@@ -12,6 +12,7 @@
 #include <DNSServer.h>
 
 #include "ControllerData.h"
+#include "Controller/ControllerValidation.h"
 
 
 SemaphoreHandle_t DataMutex;
@@ -53,6 +54,30 @@ void ensureBoolDefault(const char* key, bool defaultValue, bool& defaultStored) 
     if (prefs.putBool(key, defaultValue) == sizeof(defaultValue)) {
         defaultStored = true;
     } else {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+void repairFloat(const char* key, float& value, float defaultValue) {
+    value = defaultValue;
+    Serial.printf("[NVS] Valeur invalide pour %s; valeur par defaut restauree.\n", key);
+    if (prefs.putFloat(key, defaultValue) != sizeof(defaultValue)) {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+void repairUInt(const char* key, unsigned int& value, unsigned int defaultValue) {
+    value = defaultValue;
+    Serial.printf("[NVS] Valeur invalide pour %s; valeur par defaut restauree.\n", key);
+    if (prefs.putUInt(key, defaultValue) != sizeof(defaultValue)) {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+void repairBool(const char* key, bool& value, bool defaultValue) {
+    value = defaultValue;
+    Serial.printf("[NVS] Valeur invalide pour %s; valeur par defaut restauree.\n", key);
+    if (prefs.putBool(key, defaultValue) != sizeof(defaultValue)) {
         Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
     }
 }
@@ -240,11 +265,50 @@ void LoadCaveControllerData(StrctDataController &data){
     data.FanEnabled = prefs.getBool("FanEnabled", true);
     data.FanOnMinutes = prefs.getUInt("FanOnMin", FanDefaultOnMinutes);
     data.FanOffMinutes = prefs.getUInt("FanOffMin", FanDefaultOffMinutes);
+
+    if (!IsValidTemperatureSetpoint(data.SetTemp)) {
+        repairFloat("SetTemp", data.SetTemp, 12.0f);
+    }
+    if (!IsValidHumiditySetpoint(data.SetHum)) {
+        repairFloat("SetHum", data.SetHum, 70.0f);
+    }
+
+    if (!IsValidTemperatureOffset(data.TempOffset)) {
+        repairFloat("TempOffset", data.TempOffset, 0.0f);
+        repairBool("TempOffsetEn", data.TempOffsetEnabled, false);
+    }
+    if (!IsValidHumidityOffset(data.HumOffset)) {
+        repairFloat("HumOffset", data.HumOffset, 0.0f);
+        repairBool("HumOffsetEn", data.HumOffsetEnabled, false);
+    }
+
+    if (!IsValidTemperatureRelaySettings(data)) {
+        repairFloat("ColdHysH", data.ColdHysHigh, 0.8f);
+        repairFloat("ColdHysL", data.ColdHysLow, 0.1f);
+        repairUInt("ColdMinOn", data.ColdDelayMinOn, 60);
+        repairUInt("ColdMinOff", data.ColdDelayMinOff, 60);
+        repairFloat("HeatHysH", data.HeatHysHigh, -0.1f);
+        repairFloat("HeatHysL", data.HeatHysLow, -0.8f);
+        repairUInt("HeatMinOn", data.HeatDelayMinOn, 60);
+        repairUInt("HeatMinOff", data.HeatDelayMinOff, 60);
+    }
+
+    if (!IsValidHumidityRelaySettings(data)) {
+        repairFloat("DehumHysH", data.DehumHysHigh, 1.5f);
+        repairFloat("DehumHysL", data.DehumHysLow, 0.5f);
+        repairUInt("DehumMinOn", data.DehumDelayMinOn, 60);
+        repairUInt("DehumMinOff", data.DehumDelayMinOff, 60);
+        repairFloat("HumHysH", data.HumHysHigh, -0.5f);
+        repairFloat("HumHysL", data.HumHysLow, -1.5f);
+        repairUInt("HumMinOn", data.HumDelayMinOn, 60);
+        repairUInt("HumMinOff", data.HumDelayMinOff, 60);
+    }
+
     if (data.FanOnMinutes < FanDurationMinMinutes || data.FanOnMinutes > FanDurationMaxMinutes) {
-        data.FanOnMinutes = FanDefaultOnMinutes;
+        repairUInt("FanOnMin", data.FanOnMinutes, FanDefaultOnMinutes);
     }
     if (data.FanOffMinutes < FanDurationMinMinutes || data.FanOffMinutes > FanDurationMaxMinutes) {
-        data.FanOffMinutes = FanDefaultOffMinutes;
+        repairUInt("FanOffMin", data.FanOffMinutes, FanDefaultOffMinutes);
     }
 
     prefs.end();
@@ -380,13 +444,20 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
 
 
 
-void Save_SetTemp_and_SetHum(){
+bool Save_SetTemp_and_SetHum(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putFloat("SetTemp", DataController.SetTemp);
-    prefs.putFloat("SetHum", DataController.SetHum);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour les consignes.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putFloat("SetTemp", DataController.SetTemp) != sizeof(DataController.SetTemp)) saved = false;
+    if (prefs.putFloat("SetHum", DataController.SetHum) != sizeof(DataController.SetHum)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex);  
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement des consignes.");
+    return saved;
 }
 
 void Save_Wifi_Parameters(){
@@ -411,56 +482,91 @@ void Save_Mqtt_Parameters(){
     xSemaphoreGive(DataMutex); 
 }
 
-void Save_SensorOffset(){
+bool Save_SensorOffset(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putBool("TempOffsetEn", DataController.TempOffsetEnabled);
-    prefs.putFloat("TempOffset", DataController.TempOffset);
-    prefs.putBool("HumOffsetEn", DataController.HumOffsetEnabled);
-    prefs.putFloat("HumOffset", DataController.HumOffset);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour la calibration.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putBool("TempOffsetEn", DataController.TempOffsetEnabled) != sizeof(DataController.TempOffsetEnabled)) saved = false;
+    if (prefs.putFloat("TempOffset", DataController.TempOffset) != sizeof(DataController.TempOffset)) saved = false;
+    if (prefs.putBool("HumOffsetEn", DataController.HumOffsetEnabled) != sizeof(DataController.HumOffsetEnabled)) saved = false;
+    if (prefs.putFloat("HumOffset", DataController.HumOffset) != sizeof(DataController.HumOffset)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement de la calibration.");
+    return saved;
 }
 
-void Save_ColdHardware(){
+bool Save_ColdHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putFloat("ColdHysH", DataController.ColdHysHigh);
-    prefs.putFloat("ColdHysL", DataController.ColdHysLow);
-    prefs.putUInt("ColdMinOn", DataController.ColdDelayMinOn);
-    prefs.putUInt("ColdMinOff", DataController.ColdDelayMinOff);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour le froid.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putFloat("ColdHysH", DataController.ColdHysHigh) != sizeof(DataController.ColdHysHigh)) saved = false;
+    if (prefs.putFloat("ColdHysL", DataController.ColdHysLow) != sizeof(DataController.ColdHysLow)) saved = false;
+    if (prefs.putUInt("ColdMinOn", DataController.ColdDelayMinOn) != sizeof(DataController.ColdDelayMinOn)) saved = false;
+    if (prefs.putUInt("ColdMinOff", DataController.ColdDelayMinOff) != sizeof(DataController.ColdDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres froid.");
+    return saved;
 }
-void Save_HeatHardware(){
+bool Save_HeatHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putFloat("HeatHysH", DataController.HeatHysHigh);
-    prefs.putFloat("HeatHysL", DataController.HeatHysLow);
-    prefs.putUInt("HeatMinOn", DataController.HeatDelayMinOn);
-    prefs.putUInt("HeatMinOff", DataController.HeatDelayMinOff);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour le chauffage.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putFloat("HeatHysH", DataController.HeatHysHigh) != sizeof(DataController.HeatHysHigh)) saved = false;
+    if (prefs.putFloat("HeatHysL", DataController.HeatHysLow) != sizeof(DataController.HeatHysLow)) saved = false;
+    if (prefs.putUInt("HeatMinOn", DataController.HeatDelayMinOn) != sizeof(DataController.HeatDelayMinOn)) saved = false;
+    if (prefs.putUInt("HeatMinOff", DataController.HeatDelayMinOff) != sizeof(DataController.HeatDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres chauffage.");
+    return saved;
 }
-void Save_DehumHardware(){
+bool Save_DehumHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putFloat("DehumHysH", DataController.DehumHysHigh);
-    prefs.putFloat("DehumHysL", DataController.DehumHysLow);
-    prefs.putUInt("DehumMinOn", DataController.DehumDelayMinOn);
-    prefs.putUInt("DehumMinOff", DataController.DehumDelayMinOff);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour la deshumidification.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putFloat("DehumHysH", DataController.DehumHysHigh) != sizeof(DataController.DehumHysHigh)) saved = false;
+    if (prefs.putFloat("DehumHysL", DataController.DehumHysLow) != sizeof(DataController.DehumHysLow)) saved = false;
+    if (prefs.putUInt("DehumMinOn", DataController.DehumDelayMinOn) != sizeof(DataController.DehumDelayMinOn)) saved = false;
+    if (prefs.putUInt("DehumMinOff", DataController.DehumDelayMinOff) != sizeof(DataController.DehumDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres deshumidification.");
+    return saved;
 }
-void Save_HumHardware(){
+bool Save_HumHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyData", false);
-    prefs.putFloat("HumHysH", DataController.HumHysHigh);
-    prefs.putFloat("HumHysL", DataController.HumHysLow);
-    prefs.putUInt("HumMinOn", DataController.HumDelayMinOn);
-    prefs.putUInt("HumMinOff", DataController.HumDelayMinOff);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Echec d'ouverture de MyData pour l'humidification.");
+        return false;
+    }
+    bool saved = true;
+    if (prefs.putFloat("HumHysH", DataController.HumHysHigh) != sizeof(DataController.HumHysHigh)) saved = false;
+    if (prefs.putFloat("HumHysL", DataController.HumHysLow) != sizeof(DataController.HumHysLow)) saved = false;
+    if (prefs.putUInt("HumMinOn", DataController.HumDelayMinOn) != sizeof(DataController.HumDelayMinOn)) saved = false;
+    if (prefs.putUInt("HumMinOff", DataController.HumDelayMinOff) != sizeof(DataController.HumDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres humidification.");
+    return saved;
 }
 
 void Save_FanSettings(){

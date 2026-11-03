@@ -21,11 +21,9 @@ extern lv_obj_t * ui_LabelCurrentHum;
 extern lv_obj_t * ui_LabelPctCurrHum;
 extern lv_obj_t * ui_LabelSetHum;
 extern lv_obj_t * ui_LabelPctSetHum;
-extern lv_obj_t * ui_SwitchDehumState;
+extern lv_obj_t * ui_SwitchLockHum;
 extern lv_obj_t * ui_SwitchHumState;
-extern lv_obj_t * ui_Image7;
-extern lv_obj_t * ui_Image8;
-extern lv_obj_t * ui_Image14;
+extern lv_obj_t * ui_SwitchDehumState;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
