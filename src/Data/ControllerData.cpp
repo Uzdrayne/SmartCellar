@@ -118,20 +118,6 @@ void LoadWifi(StrctDataWifi &data){
     data.WifiPass = prefs.getString("Pass","");
     prefs.end();
 
-    if (data.WifiSsid.isEmpty()) {
-        prefs.begin("Wifi", true);
-        data.WifiSsid = prefs.getString("Ssid", "");
-        data.WifiPass = prefs.getString("Pass", "");
-        prefs.end();
-
-        if (!data.WifiSsid.isEmpty()) {
-            prefs.begin("MyWifi", false);
-            prefs.putString("Ssid", data.WifiSsid);
-            prefs.putString("Pass", data.WifiPass);
-            prefs.end();
-        }
-    }
-
     data.WifiConnected= false;
     data.WifiIsSTA = false;
     data.WifiScanning = false;

@@ -45,8 +45,6 @@ Les pages web du contrôleur sont embarquées et accessibles depuis le réseau l
 
 Le tableau de bord web affiche les états calculés par le C3 et, lorsqu'ils sont transmis, les niveaux GPIO rapportés par l'Arduino. MQTT/Home Assistant reste optionnel et se configure depuis l'interface web.
 
-Les identifiants Wi-Fi stockés par l'ancienne version Display dans l'espace Preferences `Wifi` sont migrés vers l'espace `MyWifi` au premier démarrage.
-
 ## Compilation
 
 Depuis la racine du projet :
