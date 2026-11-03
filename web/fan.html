@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>🌀 Paramètres ventilation</h2>
+
+<div class="card">
+  <h3>État actuel</h3>
+  <p>Activation : <strong id="FanEnabledStatus">--</strong></p>
+  <p>Relais ventilateur : <strong id="FanRelayStatus">--</strong></p>
+  <p id="FanCycleStatus">Chargement du cycle…</p>
+</div>
+
+<div class="card">
+  <h3>Configuration du cycle</h3>
+
+  <div class="relay-label">
+    <span>Ventilation activée</span>
+    <label class="switch">
+      <input type="checkbox" id="FanEnabled">
+      <span class="slider-switch"></span>
+    </label>
+  </div>
+  <p>Désactiver la ventilation coupe le relais sans modifier les durées.</p>
+
+  <div class="card">
+    <label for="FanOnMinutes"><strong>Durée de fonctionnement (minutes)</strong></label>
+    <input type="number" id="FanOnMinutes" min="1" max="1440" step="1" required>
+    <p>Durée pendant laquelle le ventilateur reste allumé.</p>
+  </div>
+
+  <div class="card">
+    <label for="FanOffMinutes"><strong>Durée d'arrêt (minutes)</strong></label>
+    <input type="number" id="FanOffMinutes" min="1" max="1440" step="1" required>
+    <p>Durée d'arrêt avant le prochain cycle.</p>
+  </div>
+
+  <p>À l'activation ou après une modification des durées, le cycle redémarre immédiatement en phase ON. La minuterie fonctionne indépendamment du capteur de température et d'humidité.</p>
+
+  <button id="SaveBtn" class="btn btn-green" onclick="saveFanSettings()" disabled>💾 Enregistrer</button>
+  <button id="CancelBtn" class="btn btn-grey" onclick="undoChanges()" disabled>↩️ Annuler</button>
+</div>
+
+<div class="card">
+  <button class="btn btn-grey" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+<script>
+let userChanged = false;
+
+const FanEnabledInput = document.getElementById("FanEnabled");
+const FanOnMinutesInput = document.getElementById("FanOnMinutes");
+const FanOffMinutesInput = document.getElementById("FanOffMinutes");
+const FanEnabledStatus = document.getElementById("FanEnabledStatus");
+const FanRelayStatus = document.getElementById("FanRelayStatus");
+const FanCycleStatus = document.getElementById("FanCycleStatus");
+const SaveBtn = document.getElementById("SaveBtn");
+const CancelBtn = document.getElementById("CancelBtn");
+
+function markChanged() {
+  userChanged = true;
+  updateButtons();
+}
+
+function updateButtons() {
+  SaveBtn.disabled = !userChanged;
+  CancelBtn.disabled = !userChanged;
+}
+
+async function updateStatus() {
+  try {
+    const response = await fetch("/GlobalStatus");
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.Fan || typeof data.Fan.Enabled !== "boolean" ||
+        typeof data.Fan.State !== "boolean") {
+      throw new Error("État de ventilation absent de GlobalStatus");
+    }
+
+    if (!userChanged) {
+      FanEnabledInput.checked = data.Fan.Enabled;
+      FanOnMinutesInput.value = data.Fan.OnMinutes;
+      FanOffMinutesInput.value = data.Fan.OffMinutes;
+    }
+
+    FanEnabledStatus.textContent = data.Fan.Enabled ? "Activée" : "Désactivée";
+    FanRelayStatus.textContent = data.Fan.State ? "ON" : "OFF";
+    FanCycleStatus.textContent =
+      `Cycle configuré : ${data.Fan.OnMinutes} min ON / ${data.Fan.OffMinutes} min OFF`;
+  } catch (error) {
+    FanEnabledStatus.textContent = "Indisponible";
+    FanRelayStatus.textContent = "Indisponible";
+    FanCycleStatus.textContent = "Impossible de lire la configuration de la ventilation.";
+    console.error("Erreur de lecture de la configuration de ventilation :", error);
+  }
+}
+
+async function saveFanSettings() {
+  const onMinutes = FanOnMinutesInput.valueAsNumber;
+  const offMinutes = FanOffMinutesInput.valueAsNumber;
+  if (!Number.isInteger(onMinutes) || onMinutes < 1 || onMinutes > 1440 ||
+      !Number.isInteger(offMinutes) || offMinutes < 1 || offMinutes > 1440) {
+    alert("Les durées doivent être des nombres entiers compris entre 1 et 1440 minutes.");
+    return;
+  }
+
+  const body = new URLSearchParams({
+    FanEnabled: FanEnabledInput.checked ? "true" : "false",
+    FanOnMinutes: String(onMinutes),
+    FanOffMinutes: String(offMinutes)
+  });
+
+  try {
+    const response = await fetch("/SaveFanParameters", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+    const message = await response.text();
+    if (!response.ok) {
+      throw new Error(message || `Erreur HTTP ${response.status}`);
+    }
+
+    alert(message);
+    userChanged = false;
+    updateButtons();
+    await updateStatus();
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement de la ventilation :", error);
+    alert(`Impossible d'enregistrer les paramètres : ${error.message}`);
+  }
+}
+
+function undoChanges() {
+  userChanged = false;
+  updateButtons();
+  updateStatus();
+}
+
+FanEnabledInput.addEventListener("change", markChanged);
+FanOnMinutesInput.addEventListener("input", markChanged);
+FanOffMinutesInput.addEventListener("input", markChanged);
+
+updateStatus();
+updateButtons();
+setInterval(updateStatus, 5000);
+</script>
+
+</body>
+</html>

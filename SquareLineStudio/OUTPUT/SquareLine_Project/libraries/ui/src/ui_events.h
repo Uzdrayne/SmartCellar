@@ -11,7 +11,6 @@ extern "C" {
 #endif
 
 void ScreenGlobal_Loaded(lv_event_t * e);
-void ScreenTempLongPress(lv_event_t * e);
 void ScreenWifi_Loaded(lv_event_t * e);
 void SwitchAPEnable(lv_event_t * e);
 

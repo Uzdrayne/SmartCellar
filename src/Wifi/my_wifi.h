@@ -3,25 +3,13 @@
 
 #include <Arduino.h>
 
-
-extern String WifiSsid;
-extern String WifiPass;
-extern String APSsid ;
-extern String APPass ;
-
-
-void Get_WIFI_SsidAndPass(String &Ssid, String &pass);
-void Save_WIFI_SsidAndPass(const String &Ssid, const String &pass);
-
+extern String APSsid;
+extern String APPass;
 
 void ConnectToWifi();
-
-
-
+void StartAccessPoint();
 void Gestion_DNS_mDNS();
-
-void InitWebSocket();
-
-void Check_LinkStatus(const unsigned long now);
+void Set_WebSocket();
+void SendValueWebSocket();
 
 #endif

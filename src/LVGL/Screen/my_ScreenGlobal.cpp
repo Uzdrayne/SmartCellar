@@ -1,8 +1,32 @@
 #include <Arduino.h>
 #include <lvgl.h>
+#include <time.h>
 #include <ui.h>
 #include "Global/Global.h"
 #include "LVGL/Lvgl_Global.h"
+
+namespace {
+
+void refreshDateLabel() {
+    constexpr time_t minimumValidEpoch = 1577836800; // 2020-01-01 UTC
+    const time_t now = time(nullptr);
+    if (now < minimumValidEpoch) {
+        lv_label_set_text(ui_LabelGlobDate, "Attente NTP...");
+        return;
+    }
+
+    struct tm localTime;
+    char dateText[32];
+    if (localtime_r(&now, &localTime) == nullptr ||
+        strftime(dateText, sizeof(dateText), "%d/%m/%Y %H:%M", &localTime) == 0) {
+        lv_label_set_text(ui_LabelGlobDate, "Heure indisponible");
+        return;
+    }
+
+    lv_label_set_text(ui_LabelGlobDate, dateText);
+}
+
+}
 
 
 
@@ -18,6 +42,10 @@ void ScreenGlobal_Loaded(lv_event_t * e){
 
 
 void Refresh_ScreenGlobal(){
+    StrctDataController localData;
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    localData = DataController;
+    xSemaphoreGive(DataMutex);
 
     //wifi
     if(WiFi.status() == WL_CONNECTED){
@@ -30,46 +58,38 @@ void Refresh_ScreenGlobal(){
     }
 
     
-    //link
-    if(LinkStatus) {
+    const bool sensorReady = !isnan(localData.Temperature) && !isnan(localData.Humidity);
+    refreshDateLabel();
+    set_switch_state(ui_SwitchGlobFanState, localData.FanState);
+    if(sensorReady) {
         lv_obj_set_style_text_color(ui_LabelGlobLink, lv_color_make(0, 200, 0),0);
-        sprintf(bufftext, "link ok %s", LinkHeart ? "-" : " ");
+        sprintf(bufftext, "Liaison OK");
         lv_label_set_text(ui_LabelGlobLink, bufftext);
         lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0x36F1FA), LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
-        //Date time
-        sprintf(bufftext,"time %04d",millis());
-        lv_label_set_text(ui_LabelGlobDate, bufftext);
-
-        //Temp
-        sprintf(bufftext,"%05.2f",DataController.TemperatureCorr);
+        const float correctedTemperature = localData.Temperature +
+            (localData.TempOffsetEnabled ? localData.TempOffset : 0.0f);
+        const float correctedHumidity = localData.Humidity +
+            (localData.HumOffsetEnabled ? localData.HumOffset : 0.0f);
+        sprintf(bufftext,"%05.2f",correctedTemperature);
         lv_label_set_text(ui_LabelGlobCurrentTemp, bufftext);
-        sprintf(bufftext,"%05.2f°C",DataController.SetTemp);
+        sprintf(bufftext,"%05.2f°C",localData.SetTemp);
         lv_label_set_text(ui_LabelGlobSetTemp, bufftext);
 
-        //Hum
-        sprintf(bufftext,"%04.1f",DataController.HumidityCorr);
+        sprintf(bufftext,"%04.1f",correctedHumidity);
         lv_label_set_text(ui_LabelGlobCurrentHum, bufftext);
-        sprintf(bufftext,"%04.1f°C",DataController.SetHum);
+        sprintf(bufftext,"%04.1f%%",localData.SetHum);
         lv_label_set_text(ui_LabelGlobSetHum, bufftext); 
 
-        //Relais
-        set_switch_state(ui_SwitchGlobColdState,DataController.ColdState);
-        set_switch_state(ui_SwitchGlobHeatState,DataController.HeatState);
-        set_switch_state(ui_SwitchGlobDehumState,DataController.DehumState);
-        set_switch_state(ui_SwitchGlobHumState,DataController.HumState);
-
-        set_switch_state(ui_SwitchGlobFanState,false);
-
+        set_switch_state(ui_SwitchGlobColdState,localData.ColdState);
+        set_switch_state(ui_SwitchGlobHeatState,localData.HeatState);
+        set_switch_state(ui_SwitchGlobDehumState,localData.DehumState);
+        set_switch_state(ui_SwitchGlobHumState,localData.HumState);
 
     } else {
         lv_obj_set_style_text_color(ui_LabelGlobLink, lv_color_make(200, 0, 0),0);
-        lv_label_set_text(ui_LabelGlobLink, "NO link");
+        lv_label_set_text(ui_LabelGlobLink, "Capteur indisponible");
         lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0xFF0000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-
-        //Date time
-        sprintf(bufftext,"time %04d",millis());
-        lv_label_set_text(ui_LabelGlobDate, bufftext);
 
         //Temp
         lv_label_set_text(ui_LabelGlobCurrentTemp, "--.--");
@@ -85,11 +105,9 @@ void Refresh_ScreenGlobal(){
         set_switch_state(ui_SwitchGlobDehumState,false);
         set_switch_state(ui_SwitchGlobHumState,false);
 
-        set_switch_state(ui_SwitchGlobFanState,false);
     }
 
 
 
 
 }
-

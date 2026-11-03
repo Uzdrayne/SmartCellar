@@ -1,257 +1,179 @@
 #include "Wifi/my_wifi.h"
 
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebSocketsClient.h>
-#include <ArduinoJson.h>
-
 #include <ESPmDNS.h>
+#include <WiFi.h>
+#include <time.h>
 
-#include <ui.h>
+#include "Data/ControllerData.h"
 #include "Global/Global.h"
-#include "LVGL/Lvgl_Global.h"
+#include "ServerWeb/WebHandlers.h"
+#include "WifiAndMqtt/my_MQTT.h"
 
-#include "Global/Global.h"
-
-#include "Wifi/my_WebServer_.h"
-
-
-
-
-String WifiSsid = "";
-String WifiPass = "";
-
-String APSsid = "SmartDisplay";
+String APSsid = "SmartCellar";
 String APPass = "123456789";
 
+namespace {
 
+bool webServicesStarted = false;
+bool wifiEventRegistered = false;
+unsigned long lastWebSocketSend = 0;
 
-//HTTPClient http;
-const char* hostIP   = "192.168.0.40"; // IP de l'autre ESP
-const uint16_t port  = 80;
+void startNetworkServices() {
+    if (!webServicesStarted) {
+        Set_WebSocket();
+        setupWebHandlers();
+        webServicesStarted = true;
+    }
 
-void Get_WIFI_SsidAndPass(String &Ssid, String &pass){
-    prefs.begin("Wifi", true);
-    Ssid = prefs.getString("Ssid", "");
-    pass = prefs.getString("Pass", "");
-    prefs.end();
+    Gestion_DNS_mDNS();
 }
 
-void Save_WIFI_SsidAndPass(const String &Ssid, const String &pass){
-    prefs.begin("Wifi", false);
-    prefs.putString("Ssid", Ssid);
-    prefs.putString("Pass", pass);
-    prefs.end();
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+                      AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_CONNECT) {
+        const IPAddress ip = client->remoteIP();
+        Serial.printf("[WS] Client %u connecté depuis %s\n", client->id(), ip.toString().c_str());
+    } else if (type == WS_EVT_DISCONNECT) {
+        Serial.printf("[WS] Client %u déconnecté\n", client->id());
+    }
 }
 
-//Evenement Wifi
-void WiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
-    Serial.printf("%d : ",millis());
-    Serial.print("Événement WiFi : ");
-    
-    switch(event) {
-        case ARDUINO_EVENT_WIFI_READY:
-            Serial.println("WiFi ready");
-            break;
-
+void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
+    switch (event) {
         case ARDUINO_EVENT_WIFI_STA_START:
-            Serial.println("STA démarrée");
-            break;
-
-        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-            Serial.println("STA connectée à AP");
-            break;
-
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            Serial.printf("STA déconnectée, raison: %d\n", info.wifi_sta_disconnected.reason);
-
-            WifiSTA_OK=false;
-
+            Set_WifiIsSTA(true);
+            WifiSTA_OK = false;
+            xSemaphoreTake(DataMutex, portMAX_DELAY);
+            DataWifi.WifiConnected = false;
+            xSemaphoreGive(DataMutex);
+            if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+                Serial.printf("Wi-Fi STA déconnecté, raison : %d\n", info.wifi_sta_disconnected.reason);
+            }
             break;
 
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-            Serial.printf("STA a reçu IP: %s \n", WiFi.localIP().toString().c_str());
-
-            WifiSTA_OK=true;
-            Gestion_DNS_mDNS();
-            LastReadJsonOK = 0;
-            InitWebSocket();
-            
+            Set_WifiIsSTA(true);
+            WifiSTA_OK = false;
+            TryingWifi = false;
+            xSemaphoreTake(DataMutex, portMAX_DELAY);
+            DataWifi.WifiConnected = true;
+            xSemaphoreGive(DataMutex);
+            Serial.printf("Wi-Fi connecté : %s\n", WiFi.localIP().toString().c_str());
+            configTzTime("CET-1CEST,M3.5.0,M10.5.0/3",
+                         "pool.ntp.org",
+                         "time.cloudflare.com",
+                         "time.google.com");
+            Serial.println("[NTP] Synchronisation horaire demandée");
+            startNetworkServices();
+            if (Get_MqttEnable()) {
+                ConnectMqtt();
+            }
+            WifiSTA_OK = true;
             break;
 
         case ARDUINO_EVENT_WIFI_AP_START:
-            Serial.println("AP démarré");
-
-            WifiSTA_OK=false;
-            Gestion_DNS_mDNS();
-            setupWebHandlers();
-            
+            Set_WifiIsSTA(false);
+            WifiSTA_OK = false;
+            TryingWifi = false;
+            xSemaphoreTake(DataMutex, portMAX_DELAY);
+            DataWifi.WifiConnected = true;
+            xSemaphoreGive(DataMutex);
+            Serial.printf("Point d'accès actif : %s, IP : %s\n",
+                          APSsid.c_str(), WiFi.softAPIP().toString().c_str());
+            startNetworkServices();
             break;
 
-        case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-            Serial.printf("Client connecté à AP, AID=%d\n", info.wifi_ap_staconnected.aid);
+        case ARDUINO_EVENT_WIFI_AP_STOP:
+            xSemaphoreTake(DataMutex, portMAX_DELAY);
+            DataWifi.WifiConnected = false;
+            xSemaphoreGive(DataMutex);
             break;
 
         default:
-            Serial.printf("Autre événement: %d\n", event);
             break;
     }
 }
 
-//fonction pour se connecter au wifi (STA)
-void ConnectToWifi(){
-
-    TryingWifi = true; //indique qu'on est entrain d'essayer de se connecter
-
-    WifiSTA_OK = false;
-    IsWsConnected = false;
-    LinkStatus = false;
- 
-    Get_WIFI_SsidAndPass(WifiSsid,WifiPass);
-
-    WiFi.onEvent(WiFiEvent);
-
-    delay(100);
-    WiFi.disconnect();
-    delay(500);
-    
-    if(WifiSsid !=""){
-
-        WiFi.disconnect();
-        delay(500);
-        WiFi.mode(WIFI_STA); 
-        delay(100);
-        WiFi.setSleep(false);
-        WiFi.setAutoReconnect(true); 
-        WiFi.setTxPower(WIFI_POWER_8_5dBm);
-
-        Serial.printf("Tentative connexion au WiFi : -%s- -> mdp : -%s-\n", WifiSsid.c_str(), WifiPass.c_str());
-
-        WiFi.begin(WifiSsid, WifiPass);
-
-        WifiAttemptStart = millis();
-    }
- 
 }
 
+void ConnectToWifi() {
+    String ssid;
+    String password;
 
-//ajoute DNS si mode STA (et DNS end en AP)
-//mDNS pour STA et AP
-void Gestion_DNS_mDNS(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    ssid = DataWifi.WifiSsid;
+    password = DataWifi.WifiPass;
+    xSemaphoreGive(DataMutex);
 
-
-    MDNS.end();
-    delay(50);
-
-    if(WiFi.status() == WL_CONNECTED){ //STA 
-        dns.stop();
-        dnsActive = false;
-    }
-    else {//AP
-        dns.setErrorReplyCode(DNSReplyCode::NoError);
-        dns.start(53, "*", WiFi.softAPIP()); 
-        dnsActive = true;
-        Serial.printf("%d : ",millis());
-        Serial.println("DNS Start");
+    if (!wifiEventRegistered) {
+        WiFi.onEvent(onWiFiEvent);
+        wifiEventRegistered = true;
     }
 
-    if (!MDNS.begin("esp_client")) {
-        Serial.println("Erreur mDNS");
+    WiFi.setSleep(false);
+    WiFi.setAutoReconnect(true);
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+
+    if (ssid.isEmpty()) {
+        StartAccessPoint();
         return;
     }
+
+    TryingWifi = true;
+    WifiSTA_OK = false;
+    WifiAttemptStart = millis();
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    Serial.printf("Connexion Wi-Fi à %s\n", ssid.c_str());
+    WiFi.begin(ssid.c_str(), password.c_str());
+}
+
+void StartAccessPoint() {
+    TryingWifi = false;
+    WifiSTA_OK = false;
+    WiFi.disconnect();
+    WiFi.mode(WIFI_AP);
+    if (!WiFi.softAP(APSsid.c_str(), APPass.c_str())) {
+        Serial.println("Échec du démarrage du point d'accès Wi-Fi");
+    }
+}
+
+void Gestion_DNS_mDNS() {
+    MDNS.end();
+
+    if (Get_WifiIsSTA()) {
+        dns.stop();
+        dnsActive = false;
+    } else {
+        dns.setErrorReplyCode(DNSReplyCode::NoError);
+        dns.start(53, "*", WiFi.softAPIP());
+        dnsActive = true;
+    }
+
+    if (!MDNS.begin("smartcellar")) {
+        Serial.println("Échec du démarrage mDNS");
+        return;
+    }
+
     MDNS.addService("http", "tcp", 80);
-    Serial.printf("%d : ",millis());
-    Serial.println("mDNS Start");
-  
-    
-
 }
 
-//evenement WebSocket
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length){
-    switch(type) {
-
-        case WStype_CONNECTED:
-            IsWsConnected = true; // Le lien est établi, mais on n'a pas encore de data
-            Serial.printf("%d : ",millis());
-            Serial.printf("[WS] Connecté à l'URL : %s\n", payload);
-            break;
-
-        case WStype_DISCONNECTED:
-            IsWsConnected = false; // Le lien est physiquement coupé
-            Serial.printf("%d : ",millis());
-            Serial.printf("[WS] Déconnecté ! (Latence possible pendant tentative de reco)\n");
-            break;
-
-        case WStype_TEXT:
-            //Serial.printf("%d : ",millis());
-            //Serial.printf("[WS] Message reçu (%u octets)\n", length);
-            ReadJSON(payload, length);
-
-            LastReadJsonOK = millis();  // preuve de vie
-            LinkStatus = true;          // lien actif confirmé
-            LinkHeart = !LinkHeart;
-
-            break;
-
-        case WStype_ERROR:
-            Serial.printf("%d : ",millis());
-            Serial.printf("[WS] Erreur détectée\n");
-            break;
-            
-        default:
-            break;
-    }
+void Set_WebSocket() {
+    ws.onEvent(onWebSocketEvent);
+    server.addHandler(&ws);
 }
 
-
-//init
-void InitWebSocket(){
-
-    Serial.printf("%d : ",millis());
-    Serial.println("Init WebSocket");
-
-    webSocket.disconnect();
-
-    delay(500);
-        
-    webSocket.begin(hostIP, 80, "/ws");
-    webSocket.onEvent(webSocketEvent);
-  
-}
-
-
-//check si on a eu un JSON dans le delay DelayLastJSON, sinon dit qu'on a perdu la com et relance un init 15 sec après
-
-void Check_LinkStatus(const unsigned long now) {
-
-    // 1) Si jamais reçu de JSON, le lien n’est pas "OK"
-    if (LastReadJsonOK == 0) {
-        LinkStatus = false;
-    } else {
-        // 2) Sinon, "OK" si on est connecté ET si le dernier JSON est récent
-        LinkStatus = (IsWsConnected && (now - LastReadJsonOK <= DelayLastJSON));
+void SendValueWebSocket() {
+    const unsigned long now = millis();
+    if (now - lastWebSocketSend < 1000 || ws.count() == 0) {
+        return;
     }
 
-    // 3) Si plus de 15s sans JSON, tenter une reconnexion WebSocket (si WiFi OK)
-    if (WiFi.status() == WL_CONNECTED) {
-        const bool timeoutNoMsg = (LastReadJsonOK == 0) || (now - LastReadJsonOK > WsTimeoutNoMsg);
-        const bool cooldownOver = (now - lastWsReconnectAttempt) > WsReconnectCooldown;
-
-        if (timeoutNoMsg && cooldownOver) {
-            Serial.printf("%lu : [WS] Timeout prolongé : Tentative de reconnexion...\n", now);
-            lastWsReconnectAttempt = now;
-
-            IsWsConnected = false;
-            LinkStatus    = false;
-
-            webSocket.disconnect(); // propre
-            delay(100);
-            InitWebSocket();
-        }
-    } else {
-        // Si pas de WiFi, on évite toute tentative WS
-        IsWsConnected = false;
-        LinkStatus    = false;
+    lastWebSocketSend = now;
+    if (xSemaphoreTake(DataMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        ws.textAll(JSON_GLOBAL_STATUS);
+        xSemaphoreGive(DataMutex);
     }
 }

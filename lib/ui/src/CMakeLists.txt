@@ -1,6 +1,7 @@
 SET(SOURCES screens/ui_ScreenGlobal.c
     screens/ui_ScreenTemp.c
     screens/ui_ScreenHum.c
+    screens/ui_ScreenFan.c
     screens/ui_ScreenWifi.c
     ui.c
     components/ui_comp_hook.c

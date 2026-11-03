@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h2>⚙️ Paramètres MQTT</h2>
+
+<div class="card">
+
+    <p>
+    <label>Activer MQTT :</label>
+        <input type="checkbox" id="MqttEnable">
+    </p>
+
+    <hr>
+
+    <p>
+    <label>Serveur MQTT :</label><br>
+        <input type="text" id="MqttServer" placeholder="mqtt://server">
+    </p>
+
+    <p>
+    <label>Port :</label><br>
+        <input type="number" id="MqttPort" min="1" max="65535">
+    </p>
+
+    <p>
+    <label>Nom d'utilisateur :</label><br>
+        <input type="text" id="MqttUser" placeholder="MQTT Username">
+    </p>
+
+    <p>
+    <label>Mot de passe :</label><br>
+        <input type="password" id="MqttPassword" placeholder="MQTT Password">
+    </p>
+
+    <hr>
+
+    <p>
+    <label>Nom de l'appareil :</label><br>
+        <input type="text" id="MqttName" placeholder="Device Name">
+    </p>
+
+    <div>
+        <button id="SaveBtn" class="btn btn-green" onclick="SaveMQTT()">💾 Enregistrer</button>
+        <button id="CancelBtn" class="btn btn-gray" onclick="UndoMQTT()">↩️ Annuler</button>
+    </div>
+
+</div>
+
+<div class="card">
+  <h3>📡 État de la connexion</h3>
+
+  <div class="info-line">
+    <div>État :</div>
+    <span id="Connected">--</span>
+  </div>
+
+</div>
+
+<!-- ⬅ Retour -->
+<div class="card">
+  <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+<script>
+const MqttEnable   = document.getElementById("MqttEnable");
+const MqttServer   = document.getElementById("MqttServer");
+const MqttPort     = document.getElementById("MqttPort");
+const MqttUser     = document.getElementById("MqttUser");
+const MqttPassword = document.getElementById("MqttPassword");
+const MqttName     = document.getElementById("MqttName");
+const MqttConnected = document.getElementById("Connected");
+
+const SaveBtn      = document.getElementById("SaveBtn");
+const CancelBtn    = document.getElementById("CancelBtn");
+
+let UserChanged = false;
+
+// Détecter les changements
+[MqttEnable, MqttServer, MqttPort, MqttUser, MqttPassword, MqttName].forEach(el => {
+  el.addEventListener("input", () => { UserChanged = true; SaveBtn.disabled = !UserChanged; CancelBtn.disabled = !UserChanged; });
+  el.addEventListener("change", () => { UserChanged = true; SaveBtn.disabled = !UserChanged; CancelBtn.disabled = !UserChanged; });
+});
+
+// Charger les valeurs depuis le ESP32
+function LoadMQTT() {
+  fetch("/GlobalStatus").then(r => r.json()).then(d => {
+    MqttEnable.checked   = d.Mqtt.MqttEnable;
+    MqttServer.value     = d.Mqtt.mqtt_server;
+    MqttPort.value       = d.Mqtt.mqtt_server_port;
+    MqttUser.value       = d.Mqtt.MQTTUSER;
+    MqttPassword.value   = d.Mqtt.MQTTPASSWORD;
+    MqttName.value       = d.Mqtt.NAME;
+
+    MqttConnected.innerText = d.Mqtt.Connected ? "Connecté" : "Non connecté";
+    MqttConnected.style.color = d.Mqtt.Connected ? "green" : "red";
+
+    UserChanged = false;
+    SaveBtn.disabled = !UserChanged;
+    CancelBtn.disabled = !UserChanged;
+  });
+}
+
+
+
+// Sauvegarder les paramètres MQTT
+function SaveMQTT() {
+  // Préparation des données
+  const params = new URLSearchParams();
+  params.append("MqttEnable", MqttEnable.checked ? 1 : 0);
+  params.append("mqtt_server", MqttServer.value);
+  params.append("mqtt_port", MqttPort.value);
+  params.append("MQTTUSER", MqttUser.value);
+  params.append("MQTTPASSWORD", MqttPassword.value);
+  params.append("NAME", MqttName.value);
+
+  // Envoi via fetch en méthode POST
+  fetch("/SaveMqtt", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  })
+  .then(r => r.text())
+  .then(txt => {
+    alert(txt);
+
+    //Une fois que l'utilisateur a cliqué sur OK, on demande le reboot
+    fetch("/RestartESP");
+    // Réinitialisation de l'état de l'interface
+    UserChanged = false;
+    SaveBtn.disabled = true;
+    CancelBtn.disabled = true;
+  })
+  .catch(err => {
+    console.error("Erreur lors de la sauvegarde MQTT :", err);
+    alert("Erreur de communication avec le serveur.");
+  });
+}
+
+// Annuler les modifications
+function UndoMQTT() {
+  LoadMQTT();
+}
+ 
+// Initialiser la page
+LoadMQTT();
+
+</script>
+</body>
+</html>

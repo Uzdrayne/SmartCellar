@@ -30,6 +30,7 @@ extern "C" {
 #include "screens/ui_ScreenGlobal.h"
 #include "screens/ui_ScreenTemp.h"
 #include "screens/ui_ScreenHum.h"
+#include "screens/ui_ScreenFan.h"
 #include "screens/ui_ScreenWifi.h"
 
 ///////////////////// VARIABLES ////////////////////

@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Convert Web folder to assets.h and .cpp",
+      "label": "Convert Web folder to gzip assets",
       "type": "shell",
       "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\python.exe",
-      "args": ["tools/Web2CPP.py"],
+      "args": ["Tools/WebtoCPP_Gzip.py"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -25,7 +25,7 @@
       "label": "Sync SquareLine UI",
       "type": "shell",
       "command": "${env:USERPROFILE}\\.platformio\\penv\\Scripts\\python.exe",
-      "args": ["tools/sync_ui.py"],
+      "args": ["Tools/sync_ui.py"],
       "options": {
         "cwd": "${workspaceFolder}"
       },

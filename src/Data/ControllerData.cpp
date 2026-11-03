@@ -1,0 +1,488 @@
+#include <Arduino.h>
+#include <Preferences.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+
+#include <HomeAssistantMQTT.h>
+
+#include <DNSServer.h>
+
+#include "ControllerData.h"
+
+
+SemaphoreHandle_t DataMutex;
+
+
+Preferences prefs;
+
+namespace {
+
+void ensureFloatDefault(const char* key, float defaultValue, bool& defaultStored) {
+    if (prefs.isKey(key)) {
+        return;
+    }
+
+    if (prefs.putFloat(key, defaultValue) == sizeof(defaultValue)) {
+        defaultStored = true;
+    } else {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+void ensureUIntDefault(const char* key, unsigned int defaultValue, bool& defaultStored) {
+    if (prefs.isKey(key)) {
+        return;
+    }
+
+    if (prefs.putUInt(key, defaultValue) == sizeof(defaultValue)) {
+        defaultStored = true;
+    } else {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+void ensureBoolDefault(const char* key, bool defaultValue, bool& defaultStored) {
+    if (prefs.isKey(key)) {
+        return;
+    }
+
+    if (prefs.putBool(key, defaultValue) == sizeof(defaultValue)) {
+        defaultStored = true;
+    } else {
+        Serial.printf("[NVS] Echec d'enregistrement de la valeur par defaut: %s\n", key);
+    }
+}
+
+}
+
+
+// Déclaration du serveur async
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+DNSServer dns;
+
+WiFiClient wifiClient;
+HomeAssistantMQTT mqtt;
+
+
+StrctDataController DataController;
+StrctDataWifi DataWifi;
+StrctDataMqtt DataMqtt;
+
+
+//String JSON_GLOBAL_STATUS;
+
+char JSON_GLOBAL_STATUS[2000];
+
+
+void InitMutex(){
+ DataMutex = xSemaphoreCreateMutex();
+ assert(DataMutex != NULL);
+}
+
+
+
+
+void Set_WifiIsSTA(bool val){ xSemaphoreTake(DataMutex, portMAX_DELAY); DataWifi.WifiIsSTA= val; xSemaphoreGive(DataMutex); }
+bool Get_WifiIsSTA(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = DataWifi.WifiIsSTA; xSemaphoreGive(DataMutex); return v; }
+
+void Set_WifiScanning(bool val){ xSemaphoreTake(DataMutex, portMAX_DELAY); DataWifi.WifiScanning= val; xSemaphoreGive(DataMutex); }
+bool Get_WifiScanning(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = DataWifi.WifiScanning; xSemaphoreGive(DataMutex); return v; }
+
+
+
+
+
+
+// Bool : activer ou non MQTT
+void Set_MqttEnable(bool val){ xSemaphoreTake(DataMutex, portMAX_DELAY); DataMqtt.MqttEnable = val; xSemaphoreGive(DataMutex); }
+bool Get_MqttEnable(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = DataMqtt.MqttEnable; xSemaphoreGive(DataMutex); return v; }
+
+void Set_MqttConnected(bool val){ xSemaphoreTake(DataMutex, portMAX_DELAY); DataMqtt.MqttConnected = val; xSemaphoreGive(DataMutex); }
+bool Get_MqttConnected(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = DataMqtt.MqttConnected; xSemaphoreGive(DataMutex); return v; }
+
+
+
+
+
+
+
+void LoadWifi(StrctDataWifi &data){
+    prefs.begin("MyWifi",false);
+    data.WifiSsid = prefs.getString("Ssid","");
+    data.WifiPass = prefs.getString("Pass","");
+    prefs.end();
+
+    if (data.WifiSsid.isEmpty()) {
+        prefs.begin("Wifi", true);
+        data.WifiSsid = prefs.getString("Ssid", "");
+        data.WifiPass = prefs.getString("Pass", "");
+        prefs.end();
+
+        if (!data.WifiSsid.isEmpty()) {
+            prefs.begin("MyWifi", false);
+            prefs.putString("Ssid", data.WifiSsid);
+            prefs.putString("Pass", data.WifiPass);
+            prefs.end();
+        }
+    }
+
+    data.WifiConnected= false;
+    data.WifiIsSTA = false;
+    data.WifiScanning = false;
+}
+
+void LoadMqtt(StrctDataMqtt &data){
+
+    prefs.begin("MyMqtt",false);
+
+    data.MqttEnable = prefs.getBool("MqttEnable", false);
+
+    data.MqttServer = prefs.getString("MqttServer","");// MQTT Server URL
+    data.MqttPort = prefs.getUInt("MqttPort",1883);// MQTT Server port
+
+    data.MqttUser = prefs.getString("MqttUser","");// MQTT Username
+    data.MqttPassword = prefs.getString("MqttPass","");//MQTT Password
+    
+    data.MqttDeviceName = prefs.getString("MqttName","SmartCellar");// Device name in Home Assistant
+
+    prefs.end();
+
+
+    data.MqttManu = "JR" ; // Manufacturer name
+    data.MqttModel = "SmartCellar";
+    data.MqttVersion = "v01";
+
+    data.MqttConnected = false;
+
+}
+
+void LoadCaveControllerData(StrctDataController &data){
+
+    data.Temperature = NAN;
+    data.Humidity = NAN;
+    data.ColdState = false;
+    data.HeatState = false;
+    data.DehumState = false;
+    data.HumState = false;
+    data.RelayFeedbackValid = false;
+    data.RelayGpioCold = false;
+    data.RelayGpioHeat = false;
+    data.RelayGpioDehum = false;
+    data.RelayGpioHum = false;
+    data.FanEnabled = false;
+    data.FanState = false;
+    data.RelayGpioFan = false;
+    data.FanPhaseElapsedSeconds = 0;
+    data.FanPhaseDurationSeconds = 0;
+    data.ColdDebugMsg[0] = '\0';
+    data.HeatDebugMsg[0] = '\0';
+    data.DehumDebugMsg[0] = '\0';
+    data.HumDebugMsg[0] = '\0';
+
+    prefs.begin("MyData",false);
+    bool defaultStored = false;
+
+    ensureFloatDefault("SetTemp", 12, defaultStored);
+    ensureFloatDefault("SetHum", 70, defaultStored);
+    ensureBoolDefault("TempOffsetEn", false, defaultStored);
+    ensureFloatDefault("TempOffset", 0, defaultStored);
+    ensureBoolDefault("HumOffsetEn", false, defaultStored);
+    ensureFloatDefault("HumOffset", 0, defaultStored);
+    ensureFloatDefault("ColdHysH", 0.8, defaultStored);
+    ensureFloatDefault("ColdHysL", 0.1, defaultStored);
+    ensureUIntDefault("ColdMinOn", 60, defaultStored);
+    ensureUIntDefault("ColdMinOff", 60, defaultStored);
+    ensureFloatDefault("HeatHysH", -0.1, defaultStored);
+    ensureFloatDefault("HeatHysL", -0.8, defaultStored);
+    ensureUIntDefault("HeatMinOn", 60, defaultStored);
+    ensureUIntDefault("HeatMinOff", 60, defaultStored);
+    ensureFloatDefault("DehumHysH", 1.5, defaultStored);
+    ensureFloatDefault("DehumHysL", 0.5, defaultStored);
+    ensureUIntDefault("DehumMinOn", 60, defaultStored);
+    ensureUIntDefault("DehumMinOff", 60, defaultStored);
+    ensureFloatDefault("HumHysH", -0.5, defaultStored);
+    ensureFloatDefault("HumHysL", -1.5, defaultStored);
+    ensureUIntDefault("HumMinOn", 60, defaultStored);
+    ensureUIntDefault("HumMinOff", 60, defaultStored);
+    ensureBoolDefault("FanEnabled", true, defaultStored);
+    ensureUIntDefault("FanOnMin", FanDefaultOnMinutes, defaultStored);
+    ensureUIntDefault("FanOffMin", FanDefaultOffMinutes, defaultStored);
+
+    // ================== CONSIGNES ==================
+    data.SetTemp = prefs.getFloat("SetTemp",12);
+    data.SetHum = prefs.getFloat("SetHum",70);
+
+    // ================== CAPTEUR ==================
+    data.TempOffsetEnabled = prefs.getBool("TempOffsetEn", false); //bool pour activer ou on l'offset de température
+    data.TempOffset = prefs.getFloat("TempOffset",0); // valeur de l'offset de température
+
+    data.HumOffsetEnabled = prefs.getBool("HumOffsetEn", false); //bool pour activer ou on l'offset d'humidité
+    data.HumOffset = prefs.getFloat("HumOffset",0); // valeur de l'offset de l'humidité
+
+
+    // ================== FROID ==================
+    data.ColdHysHigh= prefs.getFloat("ColdHysH",0.8); // °C Delta par rapport consigne pour activer froid
+    data.ColdHysLow= prefs.getFloat("ColdHysL",0.1); // °C Delta par rapport consigne pour désactiver froid
+    data.ColdDelayMinOn= prefs.getUInt("ColdMinOn", 60); // Temps minimum allumé
+    data.ColdDelayMinOff= prefs.getUInt("ColdMinOff", 60);// Temps minimum éteint 
+
+    // ================== CHAUD ==================
+    data.HeatHysHigh = prefs.getFloat("HeatHysH",-0.1); // °C Delta par rapport consigne pour désactiver chaud
+    data.HeatHysLow = prefs.getFloat("HeatHysL",-0.8); // °C Delta par rapport consigne pour activer chaud
+    data.HeatDelayMinOn = prefs.getUInt("HeatMinOn", 60);  // Temps minimum allumé (s)
+    data.HeatDelayMinOff = prefs.getUInt("HeatMinOff", 60);  // Temps minimum éteint (s)
+
+    // ================== DEHUM ==================
+    data.DehumHysHigh= prefs.getFloat("DehumHysH",1.5); // % Delta par rapport consigne pour activer déhumidificateur
+    data.DehumHysLow= prefs.getFloat("DehumHysL",0.5); // % Delta par rapport consigne pour désactiver déhumidificateur
+    data.DehumDelayMinOn= prefs.getUInt("DehumMinOn", 60); // Temps minimum allumé
+    data.DehumDelayMinOff= prefs.getUInt("DehumMinOff", 60);// Temps minimum éteint 
+
+    // ================== HUM ==================
+    data.HumHysHigh = prefs.getFloat("HumHysH",-0.5); // % Delta par rapport consigne pour désactiver Humidificateur
+    data.HumHysLow = prefs.getFloat("HumHysL",-1.5); // % Delta par rapport consigne pour activer Humidificateur
+    data.HumDelayMinOn = prefs.getUInt("HumMinOn", 60);  // Temps minimum allumé (s)
+    data.HumDelayMinOff = prefs.getUInt("HumMinOff", 60);  // Temps minimum éteint (s)
+
+    // ================== VENTILATION ==================
+    data.FanEnabled = prefs.getBool("FanEnabled", true);
+    data.FanOnMinutes = prefs.getUInt("FanOnMin", FanDefaultOnMinutes);
+    data.FanOffMinutes = prefs.getUInt("FanOffMin", FanDefaultOffMinutes);
+    if (data.FanOnMinutes < FanDurationMinMinutes || data.FanOnMinutes > FanDurationMaxMinutes) {
+        data.FanOnMinutes = FanDefaultOnMinutes;
+    }
+    if (data.FanOffMinutes < FanDurationMinMinutes || data.FanOffMinutes > FanDurationMaxMinutes) {
+        data.FanOffMinutes = FanDefaultOffMinutes;
+    }
+
+    prefs.end();
+
+    if (defaultStored) {
+        Serial.println("[NVS] Valeurs par defaut manquantes initialisees.");
+    }
+
+    
+}
+
+void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
+
+    //Copy local des struct.
+    StrctDataController LocalData ;
+    StrctDataMqtt LocalMqtt ;
+
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    LocalData = DataController ;
+    LocalMqtt = DataMqtt;
+    xSemaphoreGive(DataMutex);
+
+
+    JsonDocument doc;
+
+
+    JsonObject Sensor = doc["Sensor"].to<JsonObject>();
+    Sensor["Temp"] = LocalData.Temperature;
+    Sensor["Hum"]  = LocalData.Humidity;
+
+    JsonObject Consigne = doc["Consigne"].to<JsonObject>();
+    Consigne["SetTemp"] = LocalData.SetTemp;
+    Consigne["SetHum"]  = LocalData.SetHum;  
+
+    JsonObject SensorConfig = doc["SensorConfig"].to<JsonObject>();
+    SensorConfig["TempOffsetEnabled"] = LocalData.TempOffsetEnabled;
+    SensorConfig["TempOffset"] = LocalData.TempOffset;
+    SensorConfig["HumOffsetEnabled"] = LocalData.HumOffsetEnabled;
+    SensorConfig["HumOffset"] = LocalData.HumOffset;
+
+
+    JsonObject State = doc["State"].to<JsonObject>();
+    State["StateCold"]  = LocalData.ColdState;
+    State["StateHeat"]  = LocalData.HeatState;
+    State["StateDehum"] = LocalData.DehumState;
+    State["StateHum"] = LocalData.HumState;
+    State["GpioFeedbackValid"] = LocalData.RelayFeedbackValid;
+    JsonArray GpioFeedback = State["GpioFeedback"].to<JsonArray>();
+    GpioFeedback.add(LocalData.RelayGpioCold);
+    GpioFeedback.add(LocalData.RelayGpioHeat);
+    GpioFeedback.add(LocalData.RelayGpioDehum);
+    GpioFeedback.add(LocalData.RelayGpioHum);
+    GpioFeedback.add(LocalData.RelayGpioFan);
+
+    JsonObject Fan = doc["Fan"].to<JsonObject>();
+    Fan["Enabled"] = LocalData.FanEnabled;
+    Fan["State"] = LocalData.FanState;
+    Fan["OnMinutes"] = LocalData.FanOnMinutes;
+    Fan["OffMinutes"] = LocalData.FanOffMinutes;
+    Fan["ElapsedSeconds"] = LocalData.FanPhaseElapsedSeconds;
+    Fan["DurationSeconds"] = LocalData.FanPhaseDurationSeconds;
+
+
+    JsonObject HardwareCold = doc["HardwareCold"].to<JsonObject>();
+    HardwareCold["HysHigh"] = LocalData.ColdHysHigh;
+    HardwareCold["HysLow"] = LocalData.ColdHysLow;
+    HardwareCold["DelayMinOn"] = LocalData.ColdDelayMinOn;
+    HardwareCold["DelayMinOff"] = LocalData.ColdDelayMinOff;
+
+    JsonObject HardwareHeat = doc["HardwareHeat"].to<JsonObject>();
+    HardwareHeat["HysHigh"] = LocalData.HeatHysHigh;
+    HardwareHeat["HysLow"] = LocalData.HeatHysLow;
+    HardwareHeat["DelayMinOn"] = LocalData.HeatDelayMinOn;
+    HardwareHeat["DelayMinOff"] = LocalData.HeatDelayMinOff;
+
+    JsonObject HardwareDehum = doc["HardwareDehum"].to<JsonObject>();
+    HardwareDehum["HysHigh"] = LocalData.DehumHysHigh;
+    HardwareDehum["HysLow"] = LocalData.DehumHysLow;
+    HardwareDehum["DelayMinOn"] = LocalData.DehumDelayMinOn;
+    HardwareDehum["DelayMinOff"] = LocalData.DehumDelayMinOff;
+
+    JsonObject HardwareHum = doc["HardwareHum"].to<JsonObject>();
+    HardwareHum["HysHigh"] = LocalData.HumHysHigh;
+    HardwareHum["HysLow"] = LocalData.HumHysLow;
+    HardwareHum["DelayMinOn"] = LocalData.HumDelayMinOn;
+    HardwareHum["DelayMinOff"] = LocalData.HumDelayMinOff;
+
+    JsonObject DebugMsg = doc["DebugMsg"].to<JsonObject>();
+    DebugMsg["ColdDebugMsg"]  = LocalData.ColdDebugMsg;
+    DebugMsg["HeatDebugMsg"]  = LocalData.HeatDebugMsg;
+    DebugMsg["DehumDebugMsg"] = LocalData.DehumDebugMsg;
+    DebugMsg["HumDebugMsg"]   = LocalData.HumDebugMsg;
+
+
+    bool Connected = WiFi.status() == WL_CONNECTED;
+    String Ssid = WiFi.SSID();
+    int Rssi = WiFi.RSSI();
+    String Ip = WiFi.localIP().toString();
+
+    JsonObject Wifi = doc["Wifi"].to<JsonObject>();
+    Wifi["Connected"] = Connected;
+    Wifi["Ssid"]      = Ssid;
+    Wifi["Rssi"]      = Rssi;
+    Wifi["Ip"]        = Ip;
+
+
+    JsonObject Mqtt = doc["Mqtt"].to<JsonObject>();
+    Mqtt["MqttEnable"] = LocalMqtt.MqttEnable;
+    Mqtt["mqtt_server"] = LocalMqtt.MqttServer;
+    Mqtt["mqtt_server_port"] = LocalMqtt.MqttPort;
+    Mqtt["MQTTUSER"] = LocalMqtt.MqttUser;
+    Mqtt["MQTTPASSWORD"] = LocalMqtt.MqttPassword;
+    Mqtt["NAME"] = LocalMqtt.MqttDeviceName;
+    Mqtt["Connected"] = LocalMqtt.MqttConnected;
+
+
+   // serializeJson(doc, buffer,maxSize);
+
+    size_t n = serializeJson(doc, buffer, maxSize);
+
+   // Serial.println("--- Rapport de Taille JSON ---");
+   // Serial.printf("Octets écrits : %u / %u\n", n, maxSize);
+
+    // Si n est égal à maxSize - 1, c'est que le JSON a probablement été coupé !
+    if (n >= maxSize - 1) {
+        Serial.println("⚠️ ALERTE : Le buffer est TROP PETIT, le JSON est tronqué !");
+    }
+
+    // Optionnel : mesurer combien d'espace le document occupe en mémoire RAM
+   // Serial.printf("Mémoire document JSON : %u octets\n", doc.memoryUsage());
+
+}
+
+
+
+void Save_SetTemp_and_SetHum(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putFloat("SetTemp", DataController.SetTemp);
+    prefs.putFloat("SetHum", DataController.SetHum);
+    prefs.end();
+    xSemaphoreGive(DataMutex);  
+}
+
+void Save_Wifi_Parameters(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyWifi", false);
+    prefs.putString("Ssid", DataWifi.WifiSsid);
+    prefs.putString("Pass", DataWifi.WifiPass);
+    prefs.end();
+    xSemaphoreGive(DataMutex);  
+}
+
+void Save_Mqtt_Parameters(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyMqtt", false);
+    prefs.putBool("MqttEnable",    DataMqtt.MqttEnable);
+    prefs.putString("MqttServer", DataMqtt.MqttServer);         // MQTT Server URL
+    prefs.putUInt("MqttPort", DataMqtt.MqttPort);// MQTT Server port
+    prefs.putString("MqttUser", DataMqtt.MqttUser);             // MQTT Username
+    prefs.putString("MqttPass", DataMqtt.MqttPassword);         //MQTT Password
+    prefs.putString("MqttName", DataMqtt.MqttDeviceName);               // Device name in Home Assistant
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+
+void Save_SensorOffset(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putBool("TempOffsetEn", DataController.TempOffsetEnabled);
+    prefs.putFloat("TempOffset", DataController.TempOffset);
+    prefs.putBool("HumOffsetEn", DataController.HumOffsetEnabled);
+    prefs.putFloat("HumOffset", DataController.HumOffset);
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+
+void Save_ColdHardware(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putFloat("ColdHysH", DataController.ColdHysHigh);
+    prefs.putFloat("ColdHysL", DataController.ColdHysLow);
+    prefs.putUInt("ColdMinOn", DataController.ColdDelayMinOn);
+    prefs.putUInt("ColdMinOff", DataController.ColdDelayMinOff);
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+void Save_HeatHardware(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putFloat("HeatHysH", DataController.HeatHysHigh);
+    prefs.putFloat("HeatHysL", DataController.HeatHysLow);
+    prefs.putUInt("HeatMinOn", DataController.HeatDelayMinOn);
+    prefs.putUInt("HeatMinOff", DataController.HeatDelayMinOff);
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+void Save_DehumHardware(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putFloat("DehumHysH", DataController.DehumHysHigh);
+    prefs.putFloat("DehumHysL", DataController.DehumHysLow);
+    prefs.putUInt("DehumMinOn", DataController.DehumDelayMinOn);
+    prefs.putUInt("DehumMinOff", DataController.DehumDelayMinOff);
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+void Save_HumHardware(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    prefs.begin("MyData", false);
+    prefs.putFloat("HumHysH", DataController.HumHysHigh);
+    prefs.putFloat("HumHysL", DataController.HumHysLow);
+    prefs.putUInt("HumMinOn", DataController.HumDelayMinOn);
+    prefs.putUInt("HumMinOff", DataController.HumDelayMinOff);
+    prefs.end();
+    xSemaphoreGive(DataMutex); 
+}
+
+void Save_FanSettings(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    prefs.begin("MyData", false);
+    prefs.putBool("FanEnabled", DataController.FanEnabled);
+    prefs.putUInt("FanOnMin", DataController.FanOnMinutes);
+    prefs.putUInt("FanOffMin", DataController.FanOffMinutes);
+    prefs.end();
+    xSemaphoreGive(DataMutex);
+}

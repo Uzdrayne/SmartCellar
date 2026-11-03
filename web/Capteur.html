@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h2>🛠 Paramètre Capteur</h2>
+
+<div class="card">
+  <h3>🔬 Capteur installé</h3>
+  <p>🌡💧 DHT22 — GPIO4</p>
+</div>
+
+
+<div class="card">
+  <h3>🔣​ Ajustement du capteur</h3>
+
+  <div class="card">
+    <h3>🌡 Température : <span id="Temp">--</span> °C</h3>
+    
+    <label>
+      <input type="checkbox" id="EnableTempOffset">
+      Activer offset
+    </label>
+    <input type="number" id="TempOffset" step="0.05" placeholder="°C">
+  </div>
+
+
+  <div class="card">
+    <h3>💧 Humidité : <span id="Hum">--</span> %</h3>
+
+    <label>
+      <input type="checkbox" id="EnableHumOffset">
+      Activer offset
+    </label>
+    <input type="number" id="HumOffset" step="0.05" placeholder="%">
+  </div>
+
+  <button id="SaveBtnCalib" class="btn btn-green" onclick="SaveCapteurCalibration()">💾 Enregistrer Calibration</button>
+  <button id="CancelBtnCalib" class="btn btn-gray" onclick="UndoChangesCalib()">↩️ Annuler</button>
+</div>
+
+<div class="card">
+  <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+
+
+
+
+<script src="/Capteur.js"></script>
+
+</body>
+</html>

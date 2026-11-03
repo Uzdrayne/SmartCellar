@@ -302,7 +302,7 @@ void ui_ScreenGlobal_screen_init(void)
 
     lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0x00ECFE), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_opa(ui_SpinnerGlob, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_width(ui_SpinnerGlob, 2, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_width(ui_SpinnerGlob, 1, LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_ScreenGlobal, ui_event_ScreenGlobal, LV_EVENT_ALL, NULL);
 

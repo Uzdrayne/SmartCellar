@@ -14,6 +14,10 @@ lv_obj_t * ui_Label2 = NULL;
 lv_obj_t * ui_LabelAPSsid = NULL;
 lv_obj_t * ui_Label3 = NULL;
 lv_obj_t * ui_LabelAPPass = NULL;
+lv_obj_t * ui_Label4 = NULL;
+lv_obj_t * ui_LabelIP = NULL;
+lv_obj_t * ui_Label5 = NULL;
+lv_obj_t * ui_LabelLocalIP = NULL;
 // event funtions
 void ui_event_ScreenWifi(lv_event_t * e)
 {
@@ -48,6 +52,8 @@ void ui_ScreenWifi_screen_init(void)
     ui_SpinnerWifiAP = lv_spinner_create(ui_ScreenWifi, 1000, 90);
     lv_obj_set_width(ui_SpinnerWifiAP, 240);
     lv_obj_set_height(ui_SpinnerWifiAP, 240);
+    lv_obj_set_x(ui_SpinnerWifiAP, 0);
+    lv_obj_set_y(ui_SpinnerWifiAP, -1);
     lv_obj_set_align(ui_SpinnerWifiAP, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_SpinnerWifiAP, LV_OBJ_FLAG_CLICKABLE);      /// Flags
     lv_obj_set_style_border_width(ui_SpinnerWifiAP, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -62,16 +68,16 @@ void ui_ScreenWifi_screen_init(void)
 
     ui_SwitchApEnabled = lv_switch_create(ui_ScreenWifi);
     lv_obj_set_width(ui_SwitchApEnabled, 74);
-    lv_obj_set_height(ui_SwitchApEnabled, 35);
-    lv_obj_set_x(ui_SwitchApEnabled, -29);
-    lv_obj_set_y(ui_SwitchApEnabled, -28);
+    lv_obj_set_height(ui_SwitchApEnabled, 27);
+    lv_obj_set_x(ui_SwitchApEnabled, -12);
+    lv_obj_set_y(ui_SwitchApEnabled, -47);
     lv_obj_set_align(ui_SwitchApEnabled, LV_ALIGN_CENTER);
 
     ui_Label1 = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_Label1, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label1, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label1, 2);
-    lv_obj_set_y(ui_Label1, -65);
+    lv_obj_set_x(ui_Label1, 1);
+    lv_obj_set_y(ui_Label1, -78);
     lv_obj_set_align(ui_Label1, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label1, "Enable Acces Point");
     lv_obj_set_style_text_font(ui_Label1, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -79,8 +85,8 @@ void ui_ScreenWifi_screen_init(void)
     ui_LabelWifiApEnabled = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_LabelWifiApEnabled, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_LabelWifiApEnabled, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_LabelWifiApEnabled, 43);
-    lv_obj_set_y(ui_LabelWifiApEnabled, -30);
+    lv_obj_set_x(ui_LabelWifiApEnabled, 52);
+    lv_obj_set_y(ui_LabelWifiApEnabled, -47);
     lv_obj_set_align(ui_LabelWifiApEnabled, LV_ALIGN_CENTER);
     lv_label_set_text(ui_LabelWifiApEnabled, "OFF");
     lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_hex(0xFA0000), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -90,18 +96,18 @@ void ui_ScreenWifi_screen_init(void)
     ui_Label2 = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_Label2, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label2, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label2, 0);
-    lv_obj_set_y(ui_Label2, 12);
+    lv_obj_set_x(ui_Label2, -80);
+    lv_obj_set_y(ui_Label2, -10);
     lv_obj_set_align(ui_Label2, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label2, "AP name:");
+    lv_label_set_text(ui_Label2, "SSID :");
     lv_obj_set_style_text_decor(ui_Label2, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Label2, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_LabelAPSsid = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_LabelAPSsid, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_LabelAPSsid, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_LabelAPSsid, 0);
-    lv_obj_set_y(ui_LabelAPSsid, 35);
+    lv_obj_set_x(ui_LabelAPSsid, 22);
+    lv_obj_set_y(ui_LabelAPSsid, -10);
     lv_obj_set_align(ui_LabelAPSsid, LV_ALIGN_CENTER);
     lv_label_set_text(ui_LabelAPSsid, "display_04_05_8D");
     lv_obj_set_style_text_font(ui_LabelAPSsid, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -109,8 +115,8 @@ void ui_ScreenWifi_screen_init(void)
     ui_Label3 = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_Label3, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Label3, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label3, 0);
-    lv_obj_set_y(ui_Label3, 60);
+    lv_obj_set_x(ui_Label3, -65);
+    lv_obj_set_y(ui_Label3, 10);
     lv_obj_set_align(ui_Label3, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Label3, "Password : ");
     lv_obj_set_style_text_decor(ui_Label3, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -119,11 +125,49 @@ void ui_ScreenWifi_screen_init(void)
     ui_LabelAPPass = lv_label_create(ui_ScreenWifi);
     lv_obj_set_width(ui_LabelAPPass, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_LabelAPPass, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_LabelAPPass, 0);
-    lv_obj_set_y(ui_LabelAPPass, 83);
+    lv_obj_set_x(ui_LabelAPPass, 23);
+    lv_obj_set_y(ui_LabelAPPass, 10);
     lv_obj_set_align(ui_LabelAPPass, LV_ALIGN_CENTER);
     lv_label_set_text(ui_LabelAPPass, "123456789");
     lv_obj_set_style_text_font(ui_LabelAPPass, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Label4 = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_Label4, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Label4, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Label4, -59);
+    lv_obj_set_y(ui_Label4, 30);
+    lv_obj_set_align(ui_Label4, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_Label4, "IP :");
+    lv_obj_set_style_text_decor(ui_Label4, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Label4, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_LabelIP = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_LabelIP, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelIP, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_LabelIP, 7);
+    lv_obj_set_y(ui_LabelIP, 30);
+    lv_obj_set_align(ui_LabelIP, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelIP, "192.168.0.xx");
+    lv_obj_set_style_text_font(ui_LabelIP, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Label5 = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_Label5, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Label5, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Label5, -54);
+    lv_obj_set_y(ui_Label5, 73);
+    lv_obj_set_align(ui_Label5, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_Label5, "local IP :");
+    lv_obj_set_style_text_decor(ui_Label5, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Label5, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_LabelLocalIP = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_LabelLocalIP, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelLocalIP, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_LabelLocalIP, 29);
+    lv_obj_set_y(ui_LabelLocalIP, 72);
+    lv_obj_set_align(ui_LabelLocalIP, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelLocalIP, "192.168.0.xx");
+    lv_obj_set_style_text_font(ui_LabelLocalIP, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_SwitchApEnabled, ui_event_SwitchApEnabled, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ScreenWifi, ui_event_ScreenWifi, LV_EVENT_ALL, NULL);
@@ -144,5 +188,9 @@ void ui_ScreenWifi_screen_destroy(void)
     ui_LabelAPSsid = NULL;
     ui_Label3 = NULL;
     ui_LabelAPPass = NULL;
+    ui_Label4 = NULL;
+    ui_LabelIP = NULL;
+    ui_Label5 = NULL;
+    ui_LabelLocalIP = NULL;
 
 }

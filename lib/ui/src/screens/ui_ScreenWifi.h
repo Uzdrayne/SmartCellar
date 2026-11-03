@@ -24,6 +24,10 @@ extern lv_obj_t * ui_Label2;
 extern lv_obj_t * ui_LabelAPSsid;
 extern lv_obj_t * ui_Label3;
 extern lv_obj_t * ui_LabelAPPass;
+extern lv_obj_t * ui_Label4;
+extern lv_obj_t * ui_LabelIP;
+extern lv_obj_t * ui_Label5;
+extern lv_obj_t * ui_LabelLocalIP;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

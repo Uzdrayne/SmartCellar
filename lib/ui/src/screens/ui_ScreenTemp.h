@@ -26,8 +26,6 @@ extern lv_obj_t * ui_SwitchHeatState;
 extern lv_obj_t * ui_Image5;
 extern lv_obj_t * ui_Image6;
 extern lv_obj_t * ui_Image10;
-extern void ui_event_ScreenTempPannelLongPress(lv_event_t * e);
-extern lv_obj_t * ui_ScreenTempPannelLongPress;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

@@ -16,7 +16,6 @@ lv_obj_t * ui_SwitchHeatState = NULL;
 lv_obj_t * ui_Image5 = NULL;
 lv_obj_t * ui_Image6 = NULL;
 lv_obj_t * ui_Image10 = NULL;
-lv_obj_t * ui_ScreenTempPannelLongPress = NULL;
 // event funtions
 void ui_event_ScreenTemp(lv_event_t * e)
 {
@@ -39,15 +38,6 @@ void ui_event_ArcSetTemp(lv_event_t * e)
 
     if(event_code == LV_EVENT_VALUE_CHANGED) {
         _ui_arc_set_text_value(ui_LabelSetTemp, target, "", ".00");
-    }
-}
-
-void ui_event_ScreenTempPannelLongPress(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_LONG_PRESSED) {
-        ScreenTempLongPress(e);
     }
 }
 
@@ -165,16 +155,7 @@ void ui_ScreenTemp_screen_init(void)
     lv_obj_add_flag(ui_Image10, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
     lv_obj_clear_flag(ui_Image10, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_ScreenTempPannelLongPress = lv_obj_create(ui_ScreenTemp);
-    lv_obj_set_width(ui_ScreenTempPannelLongPress, 240);
-    lv_obj_set_height(ui_ScreenTempPannelLongPress, 240);
-    lv_obj_set_align(ui_ScreenTempPannelLongPress, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_ScreenTempPannelLongPress, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_ScreenTempPannelLongPress, lv_color_hex(0x121212), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_ScreenTempPannelLongPress, 200, LV_PART_MAIN | LV_STATE_DEFAULT);
-
     lv_obj_add_event_cb(ui_ArcSetTemp, ui_event_ArcSetTemp, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_ScreenTempPannelLongPress, ui_event_ScreenTempPannelLongPress, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ScreenTemp, ui_event_ScreenTemp, LV_EVENT_ALL, NULL);
 
 }
@@ -195,6 +176,5 @@ void ui_ScreenTemp_screen_destroy(void)
     ui_Image5 = NULL;
     ui_Image6 = NULL;
     ui_Image10 = NULL;
-    ui_ScreenTempPannelLongPress = NULL;
 
 }

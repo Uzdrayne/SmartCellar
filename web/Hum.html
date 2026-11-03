@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h2>💦 Paramètres Humidificateur</h2>
+
+<div class="card">
+
+    <div class="card">
+
+        <h3>🔣​ hystéresis</h3>
+
+        <p>Ces réglages permettent de définir la plage de déclenchement de l'humidificateur :<br> </p>
+
+        <div class="card">
+            <h3>📉​ Seuil Bas (%)</h3>
+            <input type="number" id="HysLow" step="0.05" placeholder="%">
+            <p>Delta par rapport à la consigne pour activer l'humidificateur.</p>
+        </div>
+
+        <div class="card">
+            <h3>📈 Seuil Haut (%)</h3>
+            <input type="number" id="HysHigh" step="0.05" placeholder="%">
+            <p>Delta par rapport à la consigne pour éteindre l'humidificateur.</p>
+        </div>
+        
+        <h3>
+            Avec la consigne à <span id="Setpoint">--</span>% l'humidificateur: <br>
+            1️⃣ s'active si Hum < à <span id="ValLow">--</span>%<br>
+            🅾️ s'éteint si Hum > à <span id="ValHigh">--</span>%
+        </h3>
+    </div>
+
+    <div class="card">
+
+        <h3>🔣​ Délais de fonctionnement</h3>
+
+        <p>Ces Délais garantissent un Hums minimum de fonctionnement pour éviter les cycles trop courts :<br> </p>
+
+        <div class="card">
+            <h3>1️⃣​ Délai Mini ON (s)</h3>
+            <input type="number" id="DelayMinOn"  min="0" step="1" placeholder="s">
+            <p>Durée minimale pendant laquelle l'humidificateur reste activé.</p>
+        </div>
+
+        <div class="card">
+            <h3>🅾️ Délai Mini OFF (s)</h3>
+            <input type="number" id="DelayMinOff"  min="0" step="1" placeholder="s">
+            <p>Durée minimale avant que l'humidificateur puisse se rallumer.</p>
+        </div>
+      
+    </div>
+
+    <button id="SaveBtn" class="btn btn-green" onclick="savemodification()">💾 Enregistrer modifications</button>
+    <button id="CancelBtn" class="btn btn-gray" onclick="UndoChanges()">↩️ Annuler</button>
+
+</div>
+
+<div class="card">
+  <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+
+
+
+
+<script>
+
+
+let UserChanged = false;
+
+let ConsigneHum = 0;
+
+
+const HysHighInput = document.getElementById("HysHigh");
+const HysLowInput = document.getElementById("HysLow");
+
+const ValSetpoint = document.getElementById("Setpoint");
+const ValThresholdHigh =document.getElementById("ValHigh");
+const ValThresholdLow =document.getElementById("ValLow");
+
+const DelayMinOnInput = document.getElementById("DelayMinOn");
+const DelayMinOffInput = document.getElementById("DelayMinOff");
+
+const SaveBtnInput = document.getElementById("SaveBtn");
+const CancelBtnInput = document.getElementById("CancelBtn");
+
+ 
+
+HysHighInput.addEventListener("input", () => { 
+    UserChanged = true; 
+    UpdateDetailSeuil();
+    ApplyBtnEnable();
+});
+
+HysLowInput.addEventListener("input", () => { 
+    UserChanged = true; 
+    UpdateDetailSeuil();
+    ApplyBtnEnable();
+});
+
+DelayMinOnInput.addEventListener("input", () => { 
+    UserChanged = true; 
+    ApplyBtnEnable();
+});
+
+DelayMinOffInput.addEventListener("input", () => { 
+    UserChanged = true; 
+    ApplyBtnEnable();
+});
+
+
+
+function UpdateStatus() {
+    fetch("/GlobalStatus").then(r => r.json()).then(d => {
+    
+    ConsigneHum = parseFloat(d.Consigne.SetHum);
+    
+    HysHighInput.value = d.HardwareHum.HysHigh;
+    HysLowInput.value = d.HardwareHum.HysLow;
+    DelayMinOnInput.value = d.HardwareHum.DelayMinOn;
+    DelayMinOffInput.value = d.HardwareHum.DelayMinOff;
+
+    UpdateDetailSeuil();
+    });
+}
+
+
+function UpdateDetailSeuil(){
+
+    let ValH = ConsigneHum + parseFloat(HysHighInput.value);
+    let ValL = ConsigneHum + parseFloat(HysLowInput.value) ;
+
+    ValSetpoint.innerText = ConsigneHum.toFixed(2); 
+    ValThresholdHigh.innerText= ValH.toFixed(2); 
+    ValThresholdLow.innerText = ValL.toFixed(2);
+
+}
+
+
+function savemodification() {
+
+    // Récupération des valeurs de la page
+    const HysHigh = parseFloat(HysHighInput.value) || 0;
+    const HysLow  = parseFloat(HysLowInput.value) || 0;
+
+    let DelayMinOn = parseInt(DelayMinOnInput.value);
+    DelayMinOn = (isNaN(DelayMinOn) || DelayMinOn < 0) ? 0 : DelayMinOn;
+
+    let DelayMinOff = parseInt(DelayMinOffInput.value);
+    DelayMinOff = (isNaN(DelayMinOff) || DelayMinOff < 0) ? 0 : DelayMinOff;
+
+    // Calcul des seuils réels
+    const ValH = ConsigneHum + HysHigh;
+    const ValL = ConsigneHum + HysLow;
+
+    // VALIDATION
+    if (ValH < ValL) {
+        alert(
+            "❌ Plage d’hystérésis invalide !\n\n" +
+            "Le seuil HAUT doit être strictement supérieur au seuil BAS.\n\n" +
+            `Seuil Haut : ${ValH.toFixed(2)} %\n` +
+            `Seuil Bas  : ${ValL.toFixed(2)} %`
+        );
+        return; // on bloque la sauvegarde
+    }
+
+    // Préparation des données POST
+    const bodyData = `HysHigh=${HysHigh}&HysLow=${HysLow}&DelayMinOn=${DelayMinOn}&DelayMinOff=${DelayMinOff}`;
+
+    // Envoi vers le serveur en POST
+    fetch("/SaveHumParameters", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: bodyData
+    })
+    .then(r => r.text())
+    .then(txt => {
+        alert(txt);
+
+        // Mise à jour après confirmation serveur
+        UpdateStatus();
+        UserChanged = false;
+        ApplyBtnEnable();
+    })
+    .catch(err => console.error("Erreur lors de la sauvegarde des paramètres humidificateur :", err));
+}
+
+
+
+
+
+function UndoChanges() {
+    UserChanged = false;
+    ApplyBtnEnable();
+    UpdateStatus();
+}
+
+
+function ApplyBtnEnable() {
+    //griser les boutons quand pas utile
+    SaveBtnInput.disabled = !UserChanged; 
+    CancelBtnInput.disabled = !UserChanged; 
+}
+
+
+
+UpdateStatus();
+ApplyBtnEnable();
+
+
+</script>
+
+</body>
+</html>
