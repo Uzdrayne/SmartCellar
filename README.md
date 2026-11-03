@@ -15,25 +15,25 @@ Le C3 conserve les consignes, calcule les quatre états de régulation et les af
 
 ## Liaison série avec l'Arduino compagnon
 
-Configuration C3 par défaut : UART `Serial1`, 115200 bauds, 8N1, RX GPIO20 et TX GPIO21, correspondant aux broches RX/TX du connecteur de la carte. Les broches sont définies par `CELLAR_LINK_RX_PIN` et `CELLAR_LINK_TX_PIN` dans `src/SerialLink/SerialLink.h`.
+Configuration C3 par défaut : UART `Serial1`, 9600 bauds, 8N1, RX GPIO20 et TX GPIO21, correspondant aux broches RX/TX du connecteur de la carte. Les broches sont définies par `CELLAR_LINK_RX_PIN` et `CELLAR_LINK_TX_PIN` dans `src/SerialLink/SerialLink.h`.
 
-Chaque message est un objet JSON terminé par `\n`. Ordre des sorties : froid, chaud, déshumidificateur, humidificateur.
+Chaque message est un objet JSON terminé par `\n`. Ordre des sorties : froid, chaud, déshumidificateur, humidificateur, ventilateur.
 
-Mesures et retour logique des quatre GPIO envoyés par le compagnon :
+Mesures et retour logique des cinq sorties rapportées par le compagnon :
 
 ```json
-{"type":"telemetry","temperature":12.5,"humidity":75.0,"gpio":[false,false,false,false]}
+{"type":"telemetry","temperature":12.5,"humidity":75.0,"gpio":[false,false,false,false,false]}
 ```
 
-Le champ `gpio` est facultatif; sans lui, les mesures restent utilisables mais le retour GPIO est signalé indisponible.
+Le champ `gpio` est facultatif; sans lui, les mesures restent utilisables mais le retour des sorties est signalé indisponible.
 
 États demandés par le C3 :
 
 ```json
-{"type":"outputs","gpio":[false,false,false,false]}
+{"type":"outputs","gpio":[false,false,false,false,false]}
 ```
 
-Le C3 transmet une nouvelle trame à chaque changement et répète l'état au moins une fois par seconde. Si aucune mesure valide n'arrive pendant 6 secondes, les mesures sont invalidées et la régulation demande l'arrêt des quatre sorties. Le retour `gpio` indique les niveaux logiques lus par le compagnon, pas l'état électrique des contacts des relais.
+Le C3 transmet une nouvelle trame à chaque changement et répète l'état au moins une fois par seconde. Si aucune mesure valide n'arrive pendant 6 secondes, les mesures sont invalidées et les quatre relais de régulation sont arrêtés; le ventilateur reste géré selon sa configuration cyclique. Le retour `gpio` indique les niveaux logiques lus par le compagnon, pas l'état électrique des contacts des relais.
 
 Raccorder TX du C3 (GPIO21) à RX du Nano, RX du C3 (GPIO20) à TX du Nano, et relier les masses. Le Nano étant généralement en logique 5 V, adapter son signal TX avant l'entrée RX 3,3 V du C3. Ne pas utiliser la broche 3V3 du connecteur pour alimenter un Nano 5 V.
 
