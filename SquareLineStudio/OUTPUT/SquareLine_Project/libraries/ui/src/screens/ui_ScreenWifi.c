@@ -127,7 +127,7 @@ void ui_ScreenWifi_screen_init(void)
     lv_obj_set_x(ui_LabelAPPass, 23);
     lv_obj_set_y(ui_LabelAPPass, 10);
     lv_obj_set_align(ui_LabelAPPass, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_LabelAPPass, "------------");
+    lv_label_set_text(ui_LabelAPPass, "123456789");
     lv_obj_set_style_text_font(ui_LabelAPPass, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Label4 = lv_label_create(ui_ScreenWifi);

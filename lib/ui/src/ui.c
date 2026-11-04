@@ -33,22 +33,22 @@ void ui_init(void)
     lv_theme_t * theme = lv_theme_default_init(dispp, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED),
                                                true, LV_FONT_DEFAULT);
     lv_disp_set_theme(dispp, theme);
-    ui_ScreenGlobal_screen_init();
+    ui_ScreenHome_screen_init();
     ui_ScreenTemp_screen_init();
     ui_ScreenHum_screen_init();
     ui_ScreenFan_screen_init();
     ui_ScreenWifi_screen_init();
-    ui_Screen1_screen_init();
+    ui_WarningSpinner_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
-    lv_disp_load_scr(ui_ScreenGlobal);
+    lv_disp_load_scr(ui_ScreenHome);
 }
 
 void ui_destroy(void)
 {
-    ui_ScreenGlobal_screen_destroy();
+    ui_ScreenHome_screen_destroy();
     ui_ScreenTemp_screen_destroy();
     ui_ScreenHum_screen_destroy();
     ui_ScreenFan_screen_destroy();
     ui_ScreenWifi_screen_destroy();
-    ui_Screen1_screen_destroy();
+    ui_WarningSpinner_screen_destroy();
 }

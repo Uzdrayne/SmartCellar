@@ -6,8 +6,8 @@
 #include "../ui.h"
 
 lv_obj_t * ui_ScreenFan = NULL;
-lv_obj_t * ui_SwitchLockFan = NULL;
-lv_obj_t * ui_SwitchFanState = NULL;
+lv_obj_t * ui_FanSwitchFanState = NULL;
+lv_obj_t * ui_FanSwitchLock = NULL;
 // event funtions
 void ui_event_ScreenFan(lv_event_t * e)
 {
@@ -32,43 +32,47 @@ void ui_ScreenFan_screen_init(void)
     lv_obj_set_style_bg_color(ui_ScreenFan, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_ScreenFan, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_SwitchLockFan = lv_switch_create(ui_ScreenFan);
-    lv_obj_set_width(ui_SwitchLockFan, 50);
-    lv_obj_set_height(ui_SwitchLockFan, 31);
-    lv_obj_set_x(ui_SwitchLockFan, 80);
-    lv_obj_set_y(ui_SwitchLockFan, 4);
-    lv_obj_set_align(ui_SwitchLockFan, LV_ALIGN_CENTER);
-    lv_obj_set_style_bg_img_src(ui_SwitchLockFan, &ui_img_cadenas_ferme_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_SwitchLockFan, &ui_img_cadenas_ouvert_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_SwitchLockFan, lv_color_hex(0x59AFEA), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_opa(ui_SwitchLockFan, 120, LV_PART_INDICATOR | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_SwitchLockFan, lv_color_hex(0x111111), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_SwitchLockFan, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
-
-    ui_SwitchFanState = lv_switch_create(ui_ScreenFan);
-    lv_obj_set_width(ui_SwitchFanState, 24);
-    lv_obj_set_height(ui_SwitchFanState, 24);
-    lv_obj_set_x(ui_SwitchFanState, 0);
-    lv_obj_set_y(ui_SwitchFanState, 95);
-    lv_obj_set_align(ui_SwitchFanState, LV_ALIGN_CENTER);
-    lv_obj_add_state(ui_SwitchFanState, LV_STATE_CHECKED);       /// States
-    lv_obj_clear_flag(ui_SwitchFanState,
-                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+    ui_FanSwitchFanState = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchFanState, 24);
+    lv_obj_set_height(ui_FanSwitchFanState, 24);
+    lv_obj_set_x(ui_FanSwitchFanState, 0);
+    lv_obj_set_y(ui_FanSwitchFanState, 95);
+    lv_obj_set_align(ui_FanSwitchFanState, LV_ALIGN_CENTER);
+    lv_obj_add_state(ui_FanSwitchFanState, LV_STATE_CHECKED);       /// States
+    lv_obj_clear_flag(ui_FanSwitchFanState,
+                      LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
                       LV_OBJ_FLAG_SNAPPABLE);     /// Flags
-    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_SwitchFanState, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_SwitchFanState, &ui_img_ventilation_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_SwitchFanState, &ui_img_ventilation_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_color(ui_FanSwitchFanState, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchFanState, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchFanState, &ui_img_ventilation_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchFanState, &ui_img_ventilation_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
 
-    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_color(ui_FanSwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchFanState, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
 
-    lv_obj_set_style_bg_color(ui_SwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_SwitchFanState, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchFanState, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchFanState, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+
+    ui_FanSwitchLock = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchLock, 40);
+    lv_obj_set_height(ui_FanSwitchLock, 25);
+    lv_obj_set_x(ui_FanSwitchLock, 80);
+    lv_obj_set_y(ui_FanSwitchLock, 0);
+    lv_obj_set_align(ui_FanSwitchLock, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_FanSwitchLock, LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_FanSwitchLock, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchLock, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchLock, &ui_img_cadenas_ferme_on_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchLock, &ui_img_cadenas_ouvert_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchLock, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchLock, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchLock, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchLock, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_ScreenFan, ui_event_ScreenFan, LV_EVENT_ALL, NULL);
 
@@ -80,7 +84,7 @@ void ui_ScreenFan_screen_destroy(void)
 
     // NULL screen variables
     ui_ScreenFan = NULL;
-    ui_SwitchLockFan = NULL;
-    ui_SwitchFanState = NULL;
+    ui_FanSwitchFanState = NULL;
+    ui_FanSwitchLock = NULL;
 
 }

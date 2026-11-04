@@ -73,6 +73,8 @@ void Initialize_LvglUI() {
 
 //timer pour refresh le temps du chrono
 void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){
+
+    /*
     if(UiReady){
         if (lv_scr_act() == ui_ScreenGlobal) {
             Refresh_ScreenGlobal();
@@ -84,4 +86,5 @@ void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){
             Refresh_ScreenFan();
         }
     }
+    */
 }

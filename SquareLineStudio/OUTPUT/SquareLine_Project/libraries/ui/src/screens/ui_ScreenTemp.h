@@ -15,15 +15,17 @@ extern void ui_ScreenTemp_screen_init(void);
 extern void ui_ScreenTemp_screen_destroy(void);
 extern void ui_event_ScreenTemp(lv_event_t * e);
 extern lv_obj_t * ui_ScreenTemp;
-extern void ui_event_ArcSetTemp(lv_event_t * e);
-extern lv_obj_t * ui_ArcSetTemp;
-extern lv_obj_t * ui_LabelCurrentTemp;
-extern lv_obj_t * ui_LabelDegCurrTemp;
-extern lv_obj_t * ui_LabelSetTemp;
-extern lv_obj_t * ui_LabelDegSetTemp;
-extern lv_obj_t * ui_SwitchLockTemp;
-extern lv_obj_t * ui_SwitchHeatState;
-extern lv_obj_t * ui_SwitchColdState;
+extern lv_obj_t * ui_TempArcSetTemp;
+extern lv_obj_t * ui_TempLabelConsigneTxt;
+extern lv_obj_t * ui_TempLabelSetTemp;
+extern lv_obj_t * ui_TempLabelSetTempUnit;
+extern lv_obj_t * ui_TempLabelCurrentTxt;
+extern lv_obj_t * ui_TempLabelCurrentTemp;
+extern lv_obj_t * ui_TempLabelCurrentTempUnit;
+extern lv_obj_t * ui_TempSwitchHeatState;
+extern lv_obj_t * ui_TempSwitchColdState;
+extern lv_obj_t * ui_TempSwitchOption;
+extern lv_obj_t * ui_TempSwitchLock;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

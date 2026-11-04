@@ -15,8 +15,8 @@ extern void ui_ScreenFan_screen_init(void);
 extern void ui_ScreenFan_screen_destroy(void);
 extern void ui_event_ScreenFan(lv_event_t * e);
 extern lv_obj_t * ui_ScreenFan;
-extern lv_obj_t * ui_SwitchLockFan;
-extern lv_obj_t * ui_SwitchFanState;
+extern lv_obj_t * ui_FanSwitchFanState;
+extern lv_obj_t * ui_FanSwitchLock;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

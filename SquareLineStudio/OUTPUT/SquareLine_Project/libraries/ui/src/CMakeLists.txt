@@ -1,12 +1,18 @@
-SET(SOURCES screens/ui_ScreenGlobal.c
+SET(SOURCES screens/ui_ScreenHome.c
     screens/ui_ScreenTemp.c
     screens/ui_ScreenHum.c
     screens/ui_ScreenFan.c
     screens/ui_ScreenWifi.c
-    screens/ui_Screen1.c
+    screens/ui_WarningSpinner.c
     ui.c
     components/ui_comp_hook.c
     ui_helpers.c
+    images/ui_img_wifi_ko_png.c
+    images/ui_img_wifi_ok_png.c
+    images/ui_img_carte_relais_ko_png.c
+    images/ui_img_carte_relais_ok_png.c
+    images/ui_img_mqtt_ko_png.c
+    images/ui_img_mqtt_ok_png.c
     images/ui_img_chaud_off_png.c
     images/ui_img_chaud_on_png.c
     images/ui_img_froid_off_png.c
@@ -17,7 +23,11 @@ SET(SOURCES screens/ui_ScreenGlobal.c
     images/ui_img_deshumidificateur_on_png.c
     images/ui_img_ventilation_off_png.c
     images/ui_img_ventilation_on_png.c
-    images/ui_img_cadenas_ferme_off_png.c
-    images/ui_img_cadenas_ouvert_on_png.c)
+    images/ui_img_roue_dentee_off_png.c
+    images/ui_img_roue_dentee_on_png.c
+    images/ui_img_cadenas_ferme_on_png.c
+    images/ui_img_cadenas_ouvert_on_png.c
+    images/ui_img_warning_60_png.c
+    images/ui_img_warning_60_plein_png.c)
 
 add_library(ui ${SOURCES})

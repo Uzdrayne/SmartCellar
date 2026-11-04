@@ -11,32 +11,34 @@ lv_obj_t * sensorFaultBanner = nullptr;
 bool measurementsAvailable = false;
 
 void ApplyHumidityLock() {
-    const bool editingEnabled = measurementsAvailable &&
-        lv_obj_has_state(ui_SwitchLockHum, LV_STATE_CHECKED);
+    /*   const bool editingEnabled = measurementsAvailable &&
+      //  lv_obj_has_state(ui_SwitchLockHum, LV_STATE_CHECKED);
     if (editingEnabled) {
-        lv_obj_clear_state(ui_ArcSetHum, LV_STATE_DISABLED);
+      //  lv_obj_clear_state(ui_ArcSetHum, LV_STATE_DISABLED);
     } else {
-        lv_obj_add_state(ui_ArcSetHum, LV_STATE_DISABLED);
+     //   lv_obj_add_state(ui_ArcSetHum, LV_STATE_DISABLED);
     }
+    */
+ 
 }
 
 void OnHumidityLockChanged(lv_event_t * e) {
     if (!measurementsAvailable) {
-        lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
+     //   lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
     }
     ApplyHumidityLock();
 }
 
 void OnHumidityScreenLoaded(lv_event_t * e) {
-    lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
+   // lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
     Refresh_ScreenHum();
 }
 
 void OnHumidityGesture(lv_event_t * e) {
     lv_indev_t * indev = lv_indev_get_act();
-    if (indev == nullptr || lv_obj_has_state(ui_SwitchLockHum, LV_STATE_CHECKED)) {
-        return;
-    }
+   // if (indev == nullptr || lv_obj_has_state(ui_SwitchLockHum, LV_STATE_CHECKED)) {
+   //     return;
+   // }
 
     const lv_dir_t direction = lv_indev_get_gesture_dir(indev);
     if (direction == LV_DIR_BOTTOM) {
@@ -51,25 +53,26 @@ void OnHumidityGesture(lv_event_t * e) {
 }
 
 void Initialize_ScreenHum() {
-    if (ui_ScreenHum == nullptr || ui_SwitchLockHum == nullptr || ui_ArcSetHum == nullptr) {
-        return;
-    }
+  //  if (ui_ScreenHum == nullptr || ui_SwitchLockHum == nullptr || ui_ArcSetHum == nullptr) {
+  //      return;
+ //   }
 
-    sensorFaultBanner = CreateSensorFaultBanner(ui_ScreenHum);
+ /*    sensorFaultBanner = CreateSensorFaultBanner(ui_ScreenHum);
     lv_obj_remove_event_cb(ui_ScreenHum, ui_event_ScreenHum);
     lv_obj_add_event_cb(ui_ScreenHum, OnHumidityGesture, LV_EVENT_GESTURE, nullptr);
     lv_obj_add_event_cb(ui_ScreenHum, OnHumidityScreenLoaded, LV_EVENT_SCREEN_LOADED, nullptr);
     lv_obj_add_event_cb(ui_SwitchLockHum, OnHumidityLockChanged, LV_EVENT_VALUE_CHANGED, nullptr);
+*/
 
-    lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
+   // lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
     Refresh_ScreenHum();
 }
 
 void Refresh_ScreenHum() {
-    if (ui_ScreenHum == nullptr || ui_SwitchLockHum == nullptr ||
-        ui_ArcSetHum == nullptr || ui_LabelCurrentHum == nullptr) {
-        return;
-    }
+   // if (ui_ScreenHum == nullptr || ui_SwitchLockHum == nullptr ||
+   //     ui_ArcSetHum == nullptr || ui_LabelCurrentHum == nullptr) {
+   //     return;
+   // }
 
     const StrctDataController data = GetControllerSnapshot();
     measurementsAvailable = HasValidControllerMeasurements(data);
@@ -80,10 +83,10 @@ void Refresh_ScreenHum() {
             (data.HumOffsetEnabled ? data.HumOffset : 0.0f);
         char text[16];
         snprintf(text, sizeof(text), "%04.1f", humidity);
-        lv_label_set_text(ui_LabelCurrentHum, text);
+       // lv_label_set_text(ui_LabelCurrentHum, text);
     } else {
-        lv_label_set_text(ui_LabelCurrentHum, "--.-");
-        lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
+      //  lv_label_set_text(ui_LabelCurrentHum, "--.-");
+       // lv_obj_clear_state(ui_SwitchLockHum, LV_STATE_CHECKED);
     }
 
     ApplyHumidityLock();

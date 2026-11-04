@@ -27,12 +27,12 @@ extern "C" {
 
 ///////////////////// SCREENS ////////////////////
 
-#include "screens/ui_ScreenGlobal.h"
+#include "screens/ui_ScreenHome.h"
 #include "screens/ui_ScreenTemp.h"
 #include "screens/ui_ScreenHum.h"
 #include "screens/ui_ScreenFan.h"
 #include "screens/ui_ScreenWifi.h"
-#include "screens/ui_Screen1.h"
+#include "screens/ui_WarningSpinner.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -42,6 +42,12 @@ extern "C" {
 extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
+LV_IMG_DECLARE(ui_img_wifi_ko_png);    // assets/wifi_ko.png
+LV_IMG_DECLARE(ui_img_wifi_ok_png);    // assets/wifi_ok.png
+LV_IMG_DECLARE(ui_img_carte_relais_ko_png);    // assets/carte_relais_ko.png
+LV_IMG_DECLARE(ui_img_carte_relais_ok_png);    // assets/carte_relais_ok.png
+LV_IMG_DECLARE(ui_img_mqtt_ko_png);    // assets/mqtt_ko.png
+LV_IMG_DECLARE(ui_img_mqtt_ok_png);    // assets/mqtt_ok.png
 LV_IMG_DECLARE(ui_img_chaud_off_png);    // assets/chaud_off.png
 LV_IMG_DECLARE(ui_img_chaud_on_png);    // assets/chaud_on.png
 LV_IMG_DECLARE(ui_img_froid_off_png);    // assets/froid_off.png
@@ -52,8 +58,12 @@ LV_IMG_DECLARE(ui_img_deshumidificateur_off_png);    // assets/deshumidificateur
 LV_IMG_DECLARE(ui_img_deshumidificateur_on_png);    // assets/deshumidificateur_on.png
 LV_IMG_DECLARE(ui_img_ventilation_off_png);    // assets/ventilation_off.png
 LV_IMG_DECLARE(ui_img_ventilation_on_png);    // assets/ventilation_on.png
-LV_IMG_DECLARE(ui_img_cadenas_ferme_off_png);    // assets/cadenas_ferme_off.png
+LV_IMG_DECLARE(ui_img_roue_dentee_off_png);    // assets/roue_dentee_off.png
+LV_IMG_DECLARE(ui_img_roue_dentee_on_png);    // assets/roue_dentee_on.png
+LV_IMG_DECLARE(ui_img_cadenas_ferme_on_png);    // assets/cadenas_ferme_on.png
 LV_IMG_DECLARE(ui_img_cadenas_ouvert_on_png);    // assets/cadenas_ouvert_on.png
+LV_IMG_DECLARE(ui_img_warning_60_png);    // assets/warning_60.png
+LV_IMG_DECLARE(ui_img_warning_60_plein_png);    // assets/warning_60_plein.png
 
 // UI INIT
 void ui_init(void);

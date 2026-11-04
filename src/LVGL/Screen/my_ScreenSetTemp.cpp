@@ -12,6 +12,7 @@ lv_obj_t * sensorFaultBanner = nullptr;
 bool measurementsAvailable = false;
 
 void ApplyTemperatureLock() {
+    /*
     const bool editingEnabled = measurementsAvailable &&
         lv_obj_has_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
     if (editingEnabled) {
@@ -19,25 +20,26 @@ void ApplyTemperatureLock() {
     } else {
         lv_obj_add_state(ui_ArcSetTemp, LV_STATE_DISABLED);
     }
+    */
 }
 
 void OnTemperatureLockChanged(lv_event_t * e) {
     if (!measurementsAvailable) {
-        lv_obj_clear_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
+      //  lv_obj_clear_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
     }
     ApplyTemperatureLock();
 }
 
 void OnTemperatureScreenLoaded(lv_event_t * e) {
-    lv_obj_clear_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
+   // lv_obj_clear_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
     Refresh_ScreenTemp();
 }
 
 void OnTemperatureGesture(lv_event_t * e) {
     lv_indev_t * indev = lv_indev_get_act();
-    if (indev == nullptr || lv_obj_has_state(ui_SwitchLockTemp, LV_STATE_CHECKED)) {
-        return;
-    }
+   // if (indev == nullptr || lv_obj_has_state(ui_SwitchLockTemp, LV_STATE_CHECKED)) {
+   //     return;
+   // }
 
     const lv_dir_t direction = lv_indev_get_gesture_dir(indev);
     if (direction == LV_DIR_TOP) {
@@ -45,13 +47,14 @@ void OnTemperatureGesture(lv_event_t * e) {
         _ui_screen_change(&ui_ScreenHum, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenHum_screen_init);
     } else if (direction == LV_DIR_BOTTOM) {
         lv_indev_wait_release(indev);
-        _ui_screen_change(&ui_ScreenGlobal, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenGlobal_screen_init);
+       // _ui_screen_change(&ui_ScreenGlobal, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenGlobal_screen_init);
     }
 }
 
 }
 
 void Initialize_ScreenTemp() {
+    /*
     if (ui_ScreenTemp == nullptr || ui_SwitchLockTemp == nullptr || ui_ArcSetTemp == nullptr) {
         return;
     }
@@ -64,9 +67,11 @@ void Initialize_ScreenTemp() {
 
     lv_obj_clear_state(ui_SwitchLockTemp, LV_STATE_CHECKED);
     Refresh_ScreenTemp();
+    */
 }
 
 void Refresh_ScreenTemp() {
+    /*
     if (ui_ScreenTemp == nullptr || ui_SwitchLockTemp == nullptr ||
         ui_ArcSetTemp == nullptr || ui_LabelCurrentTemp == nullptr) {
         return;
@@ -88,4 +93,6 @@ void Refresh_ScreenTemp() {
     }
 
     ApplyTemperatureLock();
+
+    */
 }

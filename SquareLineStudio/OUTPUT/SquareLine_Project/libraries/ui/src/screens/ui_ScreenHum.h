@@ -15,15 +15,17 @@ extern void ui_ScreenHum_screen_init(void);
 extern void ui_ScreenHum_screen_destroy(void);
 extern void ui_event_ScreenHum(lv_event_t * e);
 extern lv_obj_t * ui_ScreenHum;
-extern void ui_event_ArcSetHum(lv_event_t * e);
 extern lv_obj_t * ui_ArcSetHum;
-extern lv_obj_t * ui_LabelCurrentHum;
-extern lv_obj_t * ui_LabelPctCurrHum;
-extern lv_obj_t * ui_LabelSetHum;
-extern lv_obj_t * ui_LabelPctSetHum;
-extern lv_obj_t * ui_SwitchLockHum;
-extern lv_obj_t * ui_SwitchHumState;
-extern lv_obj_t * ui_SwitchDehumState;
+extern lv_obj_t * ui_HumLabelConsigneTxt;
+extern lv_obj_t * ui_HumLabelSetHum;
+extern lv_obj_t * ui_HumLabelSetHumUnit;
+extern lv_obj_t * ui_HumLabelCurrentTxt;
+extern lv_obj_t * ui_HumLabelCurrentHum;
+extern lv_obj_t * ui_HumLabelCurrentHumUnit;
+extern lv_obj_t * ui_HumSwitchHumState;
+extern lv_obj_t * ui_HumSwitchDehumState;
+extern lv_obj_t * ui_HumSwitchOption;
+extern lv_obj_t * ui_HumSwitchLock;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
