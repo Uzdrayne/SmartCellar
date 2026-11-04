@@ -7,8 +7,16 @@
 #include "LVGL/Lvgl_Global.h"
 
 #include "Wifi/my_wifi.h"
+#include "ServerWeb/WebSecurity.h"
 
 namespace {
+
+lv_obj_t* adminResetButton = nullptr;
+lv_obj_t* adminResetButtonLabel = nullptr;
+bool adminResetConfirmationPending = false;
+bool adminResetFailed = false;
+unsigned long adminResetRequestedAt = 0;
+constexpr unsigned long AdminResetConfirmationWindowMs = 5000;
 
 void setLabelTextIfChanged(lv_obj_t* label, const char* text) {
     if (label == nullptr) {
@@ -29,6 +37,51 @@ void formatIpAddress(char* text, size_t textSize, const IPAddress& ip) {
              static_cast<unsigned int>(ip[3]));
 }
 
+void handleAdminResetButton(lv_event_t* event) {
+    if (lv_event_get_code(event) != LV_EVENT_CLICKED ||
+        !HasWebAdminCredential()) {
+        return;
+    }
+
+    const unsigned long now = millis();
+    if (!adminResetConfirmationPending ||
+        now - adminResetRequestedAt > AdminResetConfirmationWindowMs) {
+        adminResetConfirmationPending = true;
+        adminResetFailed = false;
+        adminResetRequestedAt = now;
+        lv_label_set_text(adminResetButtonLabel, "Confirmer le reset");
+        return;
+    }
+
+    adminResetConfirmationPending = false;
+    if (ResetWebAdminCredential()) {
+        Serial.println("[WebSecurity] Compte Web réinitialisé depuis l'écran");
+        lv_label_set_text(adminResetButtonLabel, "Accès à reconfigurer via AP");
+    } else {
+        adminResetFailed = true;
+        lv_label_set_text(adminResetButtonLabel, "Échec de réinitialisation");
+    }
+}
+
+void createAdminResetButton() {
+    if (adminResetButton != nullptr) {
+        return;
+    }
+
+    adminResetButton = lv_btn_create(ui_ScreenWifi);
+    lv_obj_set_size(adminResetButton, 200, 36);
+    lv_obj_align(adminResetButton, LV_ALIGN_BOTTOM_MID, 0, -4);
+    adminResetButtonLabel = lv_label_create(adminResetButton);
+    lv_label_set_text(adminResetButtonLabel, "Réinitialiser accès Web");
+    lv_obj_center(adminResetButtonLabel);
+    lv_obj_add_event_cb(
+        adminResetButton, handleAdminResetButton, LV_EVENT_CLICKED, nullptr);
+    if (!HasWebAdminCredential()) {
+        lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
+        lv_label_set_text(adminResetButtonLabel, "Accès à configurer via AP");
+    }
+}
+
 }
 
 bool StateSwitchAP = false;
@@ -47,6 +100,7 @@ void ScreenWifi_Loaded(lv_event_t * e){
 
     lv_label_set_text(ui_LabelAPSsid,APSsid.c_str());
     lv_label_set_text(ui_LabelAPPass,APPass.c_str());
+    createAdminResetButton();
     Refresh_ScreenWifi();
 
 }
@@ -69,6 +123,25 @@ void Refresh_ScreenWifi() {
 
     setLabelTextIfChanged(ui_LabelIP, apIpText);
     setLabelTextIfChanged(ui_LabelLocalIP, localIpText);
+
+    if (adminResetButton != nullptr) {
+        if (adminResetConfirmationPending &&
+            millis() - adminResetRequestedAt > AdminResetConfirmationWindowMs) {
+            adminResetConfirmationPending = false;
+        }
+
+        if (HasWebAdminCredential()) {
+            lv_obj_clear_state(adminResetButton, LV_STATE_DISABLED);
+            if (!adminResetConfirmationPending && !adminResetFailed) {
+                lv_label_set_text(adminResetButtonLabel, "Réinitialiser accès Web");
+            }
+        } else {
+            lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
+            if (!adminResetFailed) {
+                lv_label_set_text(adminResetButtonLabel, "Accès à configurer via AP");
+            }
+        }
+    }
 }
 
 

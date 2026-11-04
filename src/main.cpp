@@ -8,7 +8,9 @@
 #include "Wifi/my_wifi.h"
 #include "Global/Global.h"
 #include "Controller/CaveController.h"
+#include "Alarm/SafetyAlarm.h"
 #include "SerialLink/SerialLink.h"
+#include "ServerWeb/WebSecurity.h"
 #include "WifiAndMqtt/my_MQTT.h"
 
 void setup()
@@ -19,6 +21,12 @@ void setup()
 
   InitMutex();
   InitializeSerialLink();
+  if (!InitializeSafetyAlarm()) {
+    Serial.println("Configuration d'alerte indisponible; seuil par défaut utilisé en mémoire.");
+  }
+  if (!InitializeWebSecurity(APPass)) {
+    Serial.println("Paramètres de sécurité indisponibles; le point d'accès ne sera pas démarré.");
+  }
   LoadWifi(DataWifi);
   LoadMqtt(DataMqtt);
   LoadCaveControllerData(DataController);
@@ -52,6 +60,7 @@ void loop() {
   ProcessSerialLink(now);
   
   UpdateController();
+  UpdateSafetyAlarm(now);
 
   if ((now - lastJson) >= 250) {
     lastJson = now;

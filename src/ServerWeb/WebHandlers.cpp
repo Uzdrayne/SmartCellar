@@ -11,6 +11,8 @@
 
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
+#include "Alarm/SafetyAlarm.h"
+#include "ServerWeb/WebSecurity.h"
 
 // ==============================
 // HANDLERS DE PAGES HTML
@@ -23,7 +25,10 @@
 void handleGlobalStatus(AsyncWebServerRequest *request){
 
   xSemaphoreTake(DataMutex, portMAX_DELAY);
-  request->send(200, "application/json", JSON_GLOBAL_STATUS);
+  AsyncWebServerResponse *response =
+      request->beginResponse(200, "application/json", JSON_GLOBAL_STATUS);
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
   xSemaphoreGive(DataMutex); // ON LIBÈRE TOUT DE SUITE
 
 
@@ -253,21 +258,38 @@ void handleSaveWiFi(AsyncWebServerRequest *request) {
 }
 
 void handleSaveMqtt(AsyncWebServerRequest *request) {
-  if(request->hasArg("MqttEnable") && request->hasArg("mqtt_server") &&request->hasArg("mqtt_port") && request->hasArg("MQTTUSER") && request->hasArg("MQTTPASSWORD") && request->hasArg("NAME")) {
+  if(request->hasArg("MqttEnable") && request->hasArg("mqtt_server") &&
+     request->hasArg("mqtt_port") && request->hasArg("MQTTUSER") &&
+     request->hasArg("NAME")) {
 
     bool MqttEnable = request->arg("MqttEnable").toInt() != 0 ;
     String MqttServer = request->arg("mqtt_server");
     uint16_t MqttPort = request->arg("mqtt_port").toInt();
     String MqttUser = request->arg("MQTTUSER");                   
-    String MqttPassword = request->arg("MQTTPASSWORD");              
+    const String MqttPassword = request->hasArg("MQTTPASSWORD")
+        ? request->arg("MQTTPASSWORD")
+        : "";
+    const String clearPasswordText = request->hasArg("ClearMqttPassword")
+        ? request->arg("ClearMqttPassword")
+        : "0";
     String MqttDeviceName = request->arg("NAME");        
+
+    if ((clearPasswordText != "0" && clearPasswordText != "1") ||
+        (clearPasswordText == "1" && !MqttPassword.isEmpty())) {
+      request->send(400, "text/plain", "Action sur le mot de passe MQTT invalide.");
+      return;
+    }
 
     xSemaphoreTake(DataMutex, portMAX_DELAY);
     DataMqtt.MqttEnable =MqttEnable;
     DataMqtt.MqttServer =MqttServer;
     DataMqtt.MqttPort =MqttPort;
     DataMqtt.MqttUser =MqttUser;
-    DataMqtt.MqttPassword =MqttPassword;
+    if (clearPasswordText == "1") {
+      DataMqtt.MqttPassword = "";
+    } else if (!MqttPassword.isEmpty()) {
+      DataMqtt.MqttPassword = MqttPassword;
+    }
     DataMqtt.MqttDeviceName =MqttDeviceName;
     xSemaphoreGive(DataMutex);
 
@@ -277,6 +299,33 @@ void handleSaveMqtt(AsyncWebServerRequest *request) {
   } else {
     request->send(400, "text/plain", "Paramètres manquants !");
   }
+}
+
+void handleConfigureAdmin(AsyncWebServerRequest *request) {
+  if (HasWebAdminCredential()) {
+    request->send(409, "text/plain", "Le compte administrateur est déjà configuré.");
+    return;
+  }
+
+  if (!request->hasArg("password") || !request->hasArg("password_confirm")) {
+    request->send(400, "text/plain", "Mot de passe manquant.");
+    return;
+  }
+
+  const String password = request->arg("password");
+  if (password.length() < 12 || password != request->arg("password_confirm")) {
+    request->send(
+        400, "text/plain",
+        "Les mots de passe doivent correspondre et contenir au moins 12 caractères.");
+    return;
+  }
+
+  if (!SaveWebAdminCredential(password)) {
+    request->send(500, "text/plain", "Impossible d'enregistrer le compte administrateur.");
+    return;
+  }
+
+  request->send(200, "text/plain", "Compte administrateur créé.");
 }
 
 void handleSaveCapteurCalibration(AsyncWebServerRequest *request) {
@@ -373,6 +422,63 @@ void handleFanSave(AsyncWebServerRequest *request) {
   request->send(200, "text/plain", "Paramètres de ventilation enregistrés.");
 }
 
+void handleSafetyAlarmSettings(AsyncWebServerRequest *request) {
+  const SafetyAlarmConfiguration configuration =
+      GetSafetyAlarmConfiguration();
+  const SafetyAlarmStatus status = GetSafetyAlarmStatus();
+
+  JsonDocument document;
+  document["thresholdC"] = configuration.HighTemperatureThresholdC;
+  document["thresholdMinC"] = SafetyAlarmThresholdMinC;
+  document["thresholdMaxC"] = SafetyAlarmThresholdMaxC;
+  document["triggerDelaySeconds"] = SafetyAlarmTriggerDelaySeconds;
+  document["recoveryDelaySeconds"] = SafetyAlarmRecoveryDelaySeconds;
+  document["alertActive"] = status.AlertActive;
+  document["alertReason"] = GetSafetyAlarmReasonText(status);
+  if (status.HasLastMeasurement) {
+    document["lastValidTemperatureC"] = status.LastValidTemperatureC;
+    document["lastMeasurementAgeSeconds"] = status.LastMeasurementAgeSeconds;
+  } else {
+    document["lastValidTemperatureC"] = nullptr;
+    document["lastMeasurementAgeSeconds"] = nullptr;
+  }
+
+  String responseBody;
+  if (serializeJson(document, responseBody) == 0) {
+    request->send(500, "text/plain", "Impossible de préparer l'état des alertes.");
+    return;
+  }
+
+  AsyncWebServerResponse *response =
+      request->beginResponse(200, "application/json", responseBody);
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
+void handleSafetyAlarmSave(AsyncWebServerRequest *request) {
+  if (!request->hasArg("thresholdC")) {
+    request->send(400, "text/plain", "Seuil de température manquant.");
+    return;
+  }
+
+  float thresholdC;
+  if (!ParseFiniteFloat(request->arg("thresholdC"), thresholdC) ||
+      thresholdC < SafetyAlarmThresholdMinC ||
+      thresholdC > SafetyAlarmThresholdMaxC) {
+    request->send(
+        400, "text/plain",
+        "Le seuil doit être compris entre 0 et 40 °C.");
+    return;
+  }
+
+  if (!SaveSafetyAlarmThreshold(thresholdC)) {
+    request->send(500, "text/plain", "Impossible d'enregistrer le seuil d'alerte.");
+    return;
+  }
+
+  request->send(200, "text/plain", "Seuil d'alerte enregistré.");
+}
+
 
 
 
@@ -392,13 +498,14 @@ void setupWebHandlers() {
 
   AddRoutesToServer(server, "/Wifi.html", DefaultPage);
 
-   server.on("/RestartESP", HTTP_GET, handleRestart);
+  server.on("/RestartESP", HTTP_POST, handleRestart);
+  server.on("/ConfigureAdmin", HTTP_POST, handleConfigureAdmin);
 
   server.on("/GlobalStatus", HTTP_GET, handleGlobalStatus);
 
   server.on("/SaveConsignes", HTTP_POST, handleSaveConsignes); 
   
-  server.on("/Scan", HTTP_GET, handleScanWifi);
+  server.on("/Scan", HTTP_POST, handleScanWifi);
   server.on("/GetScanResults", HTTP_GET, handleScanResultWifi);
   server.on("/SaveWifi", HTTP_POST, handleSaveWiFi);
   server.on("/SaveMqtt", HTTP_POST, handleSaveMqtt);
@@ -410,7 +517,10 @@ void setupWebHandlers() {
   server.on("/SaveDehumParameters", HTTP_POST, handleDehumSave);
   server.on("/SaveHumParameters", HTTP_POST, handleHumSave);
   server.on("/SaveFanParameters", HTTP_POST, handleFanSave);
+  server.on("/AlarmSettings", HTTP_GET, handleSafetyAlarmSettings);
+  server.on("/SaveAlarmSettings", HTTP_POST, handleSafetyAlarmSave);
 
+  AddWebSecurityMiddleware(server);
 
   server.begin();
 }

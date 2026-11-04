@@ -11,8 +11,19 @@
 #define CELLAR_LINK_TX_PIN 21
 #endif
 
+struct SerialLinkSnapshot {
+    bool hasReceivedTelemetry;
+    bool measurementAvailable;
+    bool measurementUnavailable;
+    bool nanoFallback;
+    bool hasLastMeasurement;
+    float lastValidTemperature;
+    unsigned long lastMeasurementAgeSeconds;
+};
+
 void InitializeSerialLink();
 void ProcessSerialLink(unsigned long now);
 void SendRelayOutputs();
+SerialLinkSnapshot GetSerialLinkSnapshot(unsigned long now);
 
 #endif

@@ -13,6 +13,10 @@ class AsyncWebServer;
 void AddRoutesToServer(AsyncWebServer& server, const char* PortailPage, const char* DefaultPage);
 
 namespace WEB {
+  extern const uint8_t AdminSetup_html[] WEB_STORAGE_ATTR;
+  extern const size_t AdminSetup_html_len;
+  extern const uint8_t Alarm_html[] WEB_STORAGE_ATTR;
+  extern const size_t Alarm_html_len;
   extern const uint8_t Capteur_html[] WEB_STORAGE_ATTR;
   extern const size_t Capteur_html_len;
   extern const uint8_t Capteur_js[] WEB_STORAGE_ATTR;

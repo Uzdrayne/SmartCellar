@@ -22,6 +22,9 @@ bool discardInputLine = false;
 bool telemetryReceived = false;
 bool telemetryStale = true;
 unsigned long lastTelemetryAt = 0;
+unsigned long serialLinkStartedAt = 0;
+float lastValidTemperature = NAN;
+bool nanoFallbackActive = false;
 unsigned long lastOutputAt = 0;
 bool lastOutputStates[5] = {false, false, false, false, false};
 bool outputSnapshotSent = false;
@@ -210,7 +213,23 @@ void processTelemetry(const char *line, unsigned long now) {
 
     const char *type = message["type"] | "";
     if (strcmp(type, "config_request") == 0) {
+        const char *reason = message["reason"] | "";
+        if (strcmp(reason, "outputs_timeout") == 0) {
+            nanoFallbackActive = true;
+            Serial.println("[UART] Le Nano demande une configuration après timeout des sorties");
+        } else if (strcmp(reason, "startup") == 0) {
+            nanoFallbackActive = false;
+        } else {
+            Serial.printf("[UART] Demande de configuration avec raison inconnue: %s\n",
+                          reason);
+        }
         controllerConfigurationRequested = true;
+        return;
+    }
+
+    if (strcmp(type, "control_restored") == 0) {
+        nanoFallbackActive = false;
+        Serial.println("[UART] Le Nano a repris le contrôle du C3");
         return;
     }
 
@@ -285,6 +304,7 @@ void processTelemetry(const char *line, unsigned long now) {
     }
     xSemaphoreGive(DataMutex);
 
+    lastValidTemperature = temperature;
     telemetryReceived = true;
     telemetryStale = false;
     lastTelemetryAt = now;
@@ -293,9 +313,26 @@ void processTelemetry(const char *line, unsigned long now) {
 }
 
 void InitializeSerialLink() {
+    serialLinkStartedAt = millis();
     Serial1.begin(SerialBaudRate, SERIAL_8N1, CELLAR_LINK_RX_PIN, CELLAR_LINK_TX_PIN);
     Serial.printf("[UART] Serial1 %lu bauds, RX GPIO%d, TX GPIO%d\n",
                   SerialBaudRate, CELLAR_LINK_RX_PIN, CELLAR_LINK_TX_PIN);
+}
+
+SerialLinkSnapshot GetSerialLinkSnapshot(unsigned long now) {
+    const bool measurementAvailable = telemetryReceived && !telemetryStale;
+    const unsigned long timeSinceLastMessage =
+        telemetryReceived ? now - lastTelemetryAt : now - serialLinkStartedAt;
+
+    return {
+        telemetryReceived,
+        measurementAvailable,
+        timeSinceLastMessage > TelemetryTimeoutMs,
+        nanoFallbackActive,
+        telemetryReceived,
+        lastValidTemperature,
+        telemetryReceived ? (now - lastTelemetryAt) / 1000UL : 0
+    };
 }
 
 void ProcessSerialLink(const unsigned long now) {

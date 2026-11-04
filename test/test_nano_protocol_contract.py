@@ -94,6 +94,14 @@ class NanoProtocolContractTests(unittest.TestCase):
         self.assertGreaterEqual(c3_capacity - 1, conservative_bound)
         self.assertGreaterEqual(nano_capacity - 1, conservative_bound)
 
+    def test_fallback_request_and_recovery_events_are_explicit(self):
+        self.assertIn("reason", self.nano_source)
+        self.assertIn("outputs_timeout", self.nano_source)
+        self.assertIn("startup", self.nano_source)
+        self.assertIn("control_restored", self.nano_source)
+        self.assertIn('strcmp(reason, "outputs_timeout")', self.c3_source)
+        self.assertIn('strcmp(type, "control_restored")', self.c3_source)
+
 
 if __name__ == "__main__":
     unittest.main()

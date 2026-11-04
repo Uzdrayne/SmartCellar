@@ -4,6 +4,7 @@
 
 #include <HomeAssistantMQTT.h>
 
+#include "Alarm/SafetyAlarm.h"
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
 
@@ -126,6 +127,24 @@ void publishMqttConfig()
 
     mqtt.publishConfigSensor("temperature", "measurement", "Temperature", "", "°C", String(ActualTemperatureCorr));
     mqtt.publishConfigSensor("humidity", "measurement", "Humidity", "", "%", String(ActualHumidityCorr));
+    const SafetyAlarmStatus alarmStatus = GetSafetyAlarmStatus();
+    mqtt.publishConfigBinarySensor(
+        "problem", "DeviceAlert", "mdi:alert",
+        "false", "true", alarmStatus.AlertActive ? "true" : "false");
+    mqtt.publishConfigSensor(
+        "", "", "AlertStatus", "mdi:alert-circle-outline", "",
+        GetSafetyAlarmReasonText(alarmStatus));
+    mqtt.publishConfigSensor(
+        "temperature", "measurement", "LastValidTemperature",
+        "mdi:thermometer-check", "°C",
+        alarmStatus.HasLastMeasurement
+            ? String(alarmStatus.LastValidTemperatureC, 1)
+            : "unknown");
+    mqtt.publishConfigSensor(
+        "", "", "LastMeasurementAge", "mdi:clock-outline", "s",
+        alarmStatus.HasLastMeasurement
+            ? String(alarmStatus.LastMeasurementAgeSeconds)
+            : "unknown");
 
     mqtt.publishConfigNumber("config", "ConsigneTemperature", "mdi:Thermometer-Lines", "°C", "5", "30", String(LocalData.SetTemp));
     mqtt.publishConfigNumber("config", "ConsigneHumidity", "mdi:water-percent", "%", "40", "100", String(LocalData.SetHum));
@@ -236,6 +255,19 @@ void publishMqttValues(unsigned long Now){
         T_FanOffMinutes = Now;
     }
 
+    const SafetyAlarmStatus alarmStatus = GetSafetyAlarmStatus();
+    mqtt.setValue("DeviceAlert", alarmStatus.AlertActive ? "true" : "false");
+    mqtt.setValue("AlertStatus", GetSafetyAlarmReasonText(alarmStatus));
+    mqtt.setValue(
+        "LastValidTemperature",
+        alarmStatus.HasLastMeasurement
+            ? String(alarmStatus.LastValidTemperatureC, 1)
+            : "unknown");
+    mqtt.setValue(
+        "LastMeasurementAge",
+        alarmStatus.HasLastMeasurement
+            ? String(alarmStatus.LastMeasurementAgeSeconds)
+            : "unknown");
 
 	mqtt.sendValues();
 		

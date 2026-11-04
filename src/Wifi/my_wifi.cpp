@@ -8,10 +8,11 @@
 #include "Data/ControllerData.h"
 #include "Global/Global.h"
 #include "ServerWeb/WebHandlers.h"
+#include "ServerWeb/WebSecurity.h"
 #include "WifiAndMqtt/my_MQTT.h"
 
 String APSsid = "SmartCellar";
-String APPass = "123456789";
+String APPass;
 
 namespace {
 
@@ -136,6 +137,10 @@ void ConnectToWifi() {
 void StartAccessPoint() {
     TryingWifi = false;
     WifiSTA_OK = false;
+    if (APPass.length() < 8) {
+        Serial.println("[WiFi] Point d'accès refusé: mot de passe unique indisponible");
+        return;
+    }
     WiFi.disconnect();
     WiFi.mode(WIFI_AP);
     if (!WiFi.softAP(APSsid.c_str(), APPass.c_str())) {

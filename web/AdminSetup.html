@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configuration de l’accès SmartCellar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Première configuration de l’accès Web</h2>
+  <div class="card">
+    <p>Choisissez un mot de passe administrateur d’au moins 12 caractères. Il sera distinct du mot de passe Wi-Fi et ne pourra pas être relu ensuite.</p>
+    <form id="adminSetupForm">
+      <p>
+        <label for="password">Mot de passe administrateur</label><br>
+        <input id="password" type="password" minlength="12" autocomplete="new-password" required>
+      </p>
+      <p>
+        <label for="passwordConfirm">Confirmer le mot de passe</label><br>
+        <input id="passwordConfirm" type="password" minlength="12" autocomplete="new-password" required>
+      </p>
+      <button class="btn btn-green" type="submit">Créer le compte</button>
+    </form>
+    <p id="result" role="status"></p>
+  </div>
+  <script>
+    document.getElementById("adminSetupForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const password = document.getElementById("password").value;
+      const confirmation = document.getElementById("passwordConfirm").value;
+      const result = document.getElementById("result");
+      if (password !== confirmation) {
+        result.textContent = "Les mots de passe ne correspondent pas.";
+        return;
+      }
+
+      const body = new URLSearchParams({
+        password,
+        password_confirm: confirmation
+      });
+      try {
+        const response = await fetch("/ConfigureAdmin", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
+        result.textContent = await response.text();
+        if (response.ok) {
+          document.getElementById("password").value = "";
+          document.getElementById("passwordConfirm").value = "";
+          window.setTimeout(() => { window.location.href = "/Menu.html"; }, 1000);
+        }
+      } catch {
+        result.textContent = "Erreur de communication avec l’appareil.";
+      }
+    });
+  </script>
+</body>
+</html>

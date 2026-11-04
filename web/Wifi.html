@@ -92,13 +92,27 @@ async function ScanWifi() {
   Status.classList.remove("hidden");
   Spinner.style.display = "block";
 
-  // Étape 1 : On lance le scan
-  await fetch("/Scan");
+  try {
+    const scanResponse = await fetch("/Scan", { method: "POST" });
+    if (!scanResponse.ok) {
+      throw new Error(await scanResponse.text());
+    }
+  } catch (err) {
+    console.error("Erreur de lancement du scan:", err);
+    Btn.disabled = false;
+    Btn.style.opacity = 1;
+    Spinner.style.display = "none";
+    Status.classList.add("hidden");
+    return;
+  }
 
   // Étape 2 : On vérifie périodiquement les résultats
   const checkResults = setInterval(async () => {
     try {
       const response = await fetch("/GetScanResults");
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
       const text = await response.text();
 
       if (text !== "WAITING" && text !== "NOT_STARTED") {
@@ -133,15 +147,21 @@ function SaveWifi(){
     headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body:`Ssid=${Ssid.value}&Pass=${Pass.value}`
   })
-  .then(r=>r.text())
-  .then(txt=> {
+  .then(async response=> {
+    const txt = await response.text();
+    if (!response.ok) {
+      throw new Error(txt);
+    }
+
     alert(txt);
-    //Une fois que l'utilisateur a cliqué sur OK, on demande le reboot
-    fetch("/RestartESP");
+    const restartResponse = await fetch("/RestartESP", { method: "POST" });
+    if (!restartResponse.ok) {
+      throw new Error(await restartResponse.text());
+    }
   })
   .catch(err => {
       console.error("Erreur lors de la sauvegarde WIFI :", err);
-      alert("Erreur de communication avec le serveur.");
+      alert(err.message || "Erreur de communication avec le serveur.");
   });
  
 }

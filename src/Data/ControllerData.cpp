@@ -417,7 +417,6 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     Mqtt["mqtt_server"] = LocalMqtt.MqttServer;
     Mqtt["mqtt_server_port"] = LocalMqtt.MqttPort;
     Mqtt["MQTTUSER"] = LocalMqtt.MqttUser;
-    Mqtt["MQTTPASSWORD"] = LocalMqtt.MqttPassword;
     Mqtt["NAME"] = LocalMqtt.MqttDeviceName;
     Mqtt["Connected"] = LocalMqtt.MqttConnected;
 

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>🚨 Alertes de sécurité</h2>
+
+<div class="card">
+  <h3>État de l'appareil</h3>
+  <p>État : <strong id="AlertState">Chargement…</strong></p>
+  <p>Motif : <span id="AlertReason">--</span></p>
+  <p>
+    Dernière mesure valide :
+    <strong id="LastValidTemperature">--</strong>
+    <span id="LastMeasurementAge"></span>
+  </p>
+</div>
+
+<div class="card">
+  <h3>Seuil de température haute</h3>
+  <label for="HighTemperatureThreshold"><strong>Seuil absolu (°C)</strong></label>
+  <input
+    type="number"
+    id="HighTemperatureThreshold"
+    min="0"
+    max="40"
+    step="0.1"
+    required
+  >
+  <p>
+    L'alerte se déclenche si la température corrigée dépasse ce seuil pendant
+    5 minutes. Elle revient à la normale si la température reste sous le seuil
+    pendant 30 secondes.
+  </p>
+  <p>Une mesure indisponible ou le mode secours du Nano déclenche également l'alerte.</p>
+
+  <button id="SaveBtn" class="btn btn-green" onclick="saveAlarmSettings()" disabled>💾 Enregistrer</button>
+  <button id="CancelBtn" class="btn btn-gray" onclick="undoChanges()" disabled>↩️ Annuler</button>
+</div>
+
+<div class="card">
+  <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
+</div>
+
+<script>
+let userChanged = false;
+
+const thresholdInput = document.getElementById("HighTemperatureThreshold");
+const alertState = document.getElementById("AlertState");
+const alertReason = document.getElementById("AlertReason");
+const lastValidTemperature = document.getElementById("LastValidTemperature");
+const lastMeasurementAge = document.getElementById("LastMeasurementAge");
+const saveButton = document.getElementById("SaveBtn");
+const cancelButton = document.getElementById("CancelBtn");
+
+function updateButtons() {
+  saveButton.disabled = !userChanged;
+  cancelButton.disabled = !userChanged;
+}
+
+function formatAge(seconds) {
+  if (seconds < 60) {
+    return `il y a ${seconds} s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `il y a ${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  return `il y a ${hours} h ${minutes % 60} min`;
+}
+
+async function updateStatus() {
+  try {
+    const response = await fetch("/AlarmSettings", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (typeof data.thresholdC !== "number" ||
+        typeof data.alertActive !== "boolean" ||
+        typeof data.alertReason !== "string") {
+      throw new Error("État des alertes invalide");
+    }
+
+    if (!userChanged) {
+      thresholdInput.value = data.thresholdC;
+    }
+    alertState.textContent = data.alertActive ? "ALERTE" : "Normal";
+    alertState.style.color = data.alertActive ? "#b00020" : "#16803c";
+    alertReason.textContent = data.alertReason;
+
+    if (typeof data.lastValidTemperatureC === "number" &&
+        typeof data.lastMeasurementAgeSeconds === "number") {
+      lastValidTemperature.textContent = `${data.lastValidTemperatureC.toFixed(1)} °C`;
+      lastMeasurementAge.textContent = `(${formatAge(data.lastMeasurementAgeSeconds)})`;
+    } else {
+      lastValidTemperature.textContent = "--";
+      lastMeasurementAge.textContent = "";
+    }
+  } catch (error) {
+    alertState.textContent = "Indisponible";
+    alertReason.textContent = "Impossible de lire l'état des alertes.";
+    console.error("Erreur de lecture de l'état des alertes :", error);
+  }
+}
+
+async function saveAlarmSettings() {
+  const thresholdC = thresholdInput.valueAsNumber;
+  if (!Number.isFinite(thresholdC) || thresholdC < 0 || thresholdC > 40) {
+    alert("Le seuil doit être compris entre 0 et 40 °C.");
+    return;
+  }
+
+  try {
+    const response = await fetch("/SaveAlarmSettings", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ thresholdC: String(thresholdC) })
+    });
+    const message = await response.text();
+    if (!response.ok) {
+      throw new Error(message || `Erreur HTTP ${response.status}`);
+    }
+
+    alert(message);
+    userChanged = false;
+    updateButtons();
+    await updateStatus();
+  } catch (error) {
+    console.error("Erreur d'enregistrement du seuil d'alerte :", error);
+    alert(`Impossible d'enregistrer le seuil : ${error.message}`);
+  }
+}
+
+function undoChanges() {
+  userChanged = false;
+  updateButtons();
+  updateStatus();
+}
+
+thresholdInput.addEventListener("input", () => {
+  userChanged = true;
+  updateButtons();
+});
+
+updateStatus();
+setInterval(updateStatus, 2000);
+</script>
+
+</body>
+</html>
