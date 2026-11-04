@@ -64,6 +64,12 @@ void SetSensorFaultBanner(lv_obj_t* banner, bool measurementsAvailable) {
     }
 }
 
+void Initialize_LvglUI() {
+    ui_init();
+    Initialize_ScreenTemp();
+    Initialize_ScreenHum();
+    Initialize_ScreenFan();
+}
 
 //timer pour refresh le temps du chrono
 void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){

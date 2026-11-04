@@ -17,6 +17,7 @@ void SetSensorFaultBanner(lv_obj_t* banner, bool measurementsAvailable);
 
 void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh);
 
+void Initialize_LvglUI();
 void Refresh_ScreenGlobal();
 void Refresh_ScreenTemp();
 void Refresh_ScreenHum();

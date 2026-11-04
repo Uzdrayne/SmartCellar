@@ -33,10 +33,8 @@ void setup()
 
   my_TouchScreen_Init();
   tft.setBrightness(10);
-  ui_init();
-  Initialize_ScreenTemp();
-  Initialize_ScreenHum();
-  Initialize_ScreenFan();
+  Initialize_LvglUI();
+  
   tft.setBrightness(ScreenUserBrightness);
   UiReady = true;
   ConnectToWifi();
