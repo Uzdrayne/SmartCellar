@@ -72,24 +72,29 @@ struct StrctDataController {
     unsigned int  HumDelayMinOn; // Temps minimum allumé (s)
     unsigned int   HumDelayMinOff ;  // Temps minimum éteint (s)
 
+    //-----VENTILATION------
+    bool FanEnabled;
+    unsigned int FanOnMinutes;
+    unsigned int FanOffMinutes;
+    unsigned long FanPhaseElapsedSeconds;
+    unsigned long FanPhaseDurationSeconds;
+
 
     //----ETATS RELAIS-------
     bool ColdState; // État du relais froid
     bool HeatState; // État du relais chaud
     bool DehumState; // État du relais déhumidificateur
     bool HumState; // État du relais humidificateur
+    bool FanState; // État du relais ventilateur
+
+    //----FEEDBACK GPIO RELAIS-------
     bool RelayFeedbackValid;
     bool RelayGpioCold;
     bool RelayGpioHeat;
     bool RelayGpioDehum;
     bool RelayGpioHum;
-    bool FanEnabled;
-    bool FanState;
-    unsigned int FanOnMinutes;
-    unsigned int FanOffMinutes;
     bool RelayGpioFan;
-    unsigned long FanPhaseElapsedSeconds;
-    unsigned long FanPhaseDurationSeconds;
+
 
     //----MESSAGES DEBUG-------
     char ColdDebugMsg[200];// Message debug froid

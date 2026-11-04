@@ -53,6 +53,7 @@ bool parseRelaySettings(AsyncWebServerRequest *request,
                            MinRelayDelaySeconds, MaxRelayDelaySeconds, delayMinOff);
 }
 
+
 void handleRelaySettingsSave(AsyncWebServerRequest *request, RelaySettingsKind kind) {
   float hysHigh;
   float hysLow;

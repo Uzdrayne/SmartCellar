@@ -121,9 +121,6 @@ bool Get_WifiScanning(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = Data
 
 
 
-
-
-
 // Bool : activer ou non MQTT
 void Set_MqttEnable(bool val){ xSemaphoreTake(DataMutex, portMAX_DELAY); DataMqtt.MqttEnable = val; xSemaphoreGive(DataMutex); }
 bool Get_MqttEnable(){ xSemaphoreTake(DataMutex, portMAX_DELAY); bool v = DataMqtt.MqttEnable; xSemaphoreGive(DataMutex); return v; }
