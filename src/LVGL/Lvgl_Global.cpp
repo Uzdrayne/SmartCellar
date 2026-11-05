@@ -78,7 +78,7 @@ void Initialize_LvglUI() {
     Initialize_ScreenHome();
     Initialize_ScreenTemp();
 
-    //Initialize_ScreenHum();
+    Initialize_ScreenHum();
     //Initialize_ScreenFan();
 }
 
