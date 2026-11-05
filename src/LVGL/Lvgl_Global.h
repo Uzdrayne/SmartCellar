@@ -17,15 +17,32 @@ void SetSensorFaultBanner(lv_obj_t* banner, bool measurementsAvailable);
 
 void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh);
 
-void Initialize_LvglUI();
-void Refresh_ScreenGlobal();
-void Refresh_ScreenTemp();
-void Refresh_ScreenHum();
-void Refresh_ScreenFan();
-void Refresh_ScreenWifi();
-void Initialize_ScreenTemp();
-void Initialize_ScreenHum();
-void Initialize_ScreenFan();
 
+
+void Initialize_LvglUI();
+
+//Screen Home
+void Initialize_ScreenHome();
+void Refresh_ScreenHome();
+
+//Screen Temp
+void Initialize_ScreenTemp();
+void Refresh_ScreenTemp();
+
+//Screen Hum
+void Initialize_ScreenHum();
+void Refresh_ScreenHum();
+
+//Screen Fan
+void Initialize_ScreenFan();
+void Refresh_ScreenFan();
+
+//Screen Wifi
+void Initialize_ScreenWifi();
+void Refresh_ScreenWifi();
+
+//Screen Warning
+void Initialize_ScreenWarning();
+void Refresh_ScreenWarning();
 
 #endif

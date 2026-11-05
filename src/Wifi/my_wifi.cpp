@@ -142,7 +142,21 @@ void StartAccessPoint() {
         return;
     }
     WiFi.disconnect();
-    WiFi.mode(WIFI_AP);
+    if (!WiFi.mode(WIFI_AP)) {
+        Serial.println("[WiFi] Impossible d'activer le mode point d'accès");
+        return;
+    }
+
+    String apMac = WiFi.softAPmacAddress();
+    apMac.replace(":", "");
+    apMac.toUpperCase();
+    if (apMac.length() != 12 || apMac == "000000000000") {
+        Serial.printf("[WiFi] Impossible de lire l'adresse MAC AP: %s\n",
+                      apMac.c_str());
+        return;
+    }
+    APSsid = "SmartCellar-" + apMac.substring(8);
+
     if (!WiFi.softAP(APSsid.c_str(), APPass.c_str())) {
         Serial.println("Échec du démarrage du point d'accès Wi-Fi");
     }

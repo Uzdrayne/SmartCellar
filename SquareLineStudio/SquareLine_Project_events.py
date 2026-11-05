@@ -18,3 +18,7 @@ def ScreenTempLongPress(event_struct):
 def ScreenWifi_Loaded(event_struct):
     return
 
+
+def ScreenHome_Loaded(event_struct):
+    return
+

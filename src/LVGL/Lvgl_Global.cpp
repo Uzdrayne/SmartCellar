@@ -66,25 +66,44 @@ void SetSensorFaultBanner(lv_obj_t* banner, bool measurementsAvailable) {
 
 void Initialize_LvglUI() {
     ui_init();
+
+
+    //créer le time de 500ms pour rafraichir les données à l'écran
+    if (Timer_ScreenRefresh == nullptr) {
+        Timer_ScreenRefresh = lv_timer_create(CallBackTimer_ScreenRefresh, 500, NULL);
+        lv_timer_set_repeat_count(Timer_ScreenRefresh, -1); // Répéter à l'infini
+        lv_timer_ready(Timer_ScreenRefresh); // Prêt immédiatement
+    }
+
+    Initialize_ScreenHome();
     Initialize_ScreenTemp();
-    Initialize_ScreenHum();
-    Initialize_ScreenFan();
+
+    //Initialize_ScreenHum();
+    //Initialize_ScreenFan();
 }
 
 //timer pour refresh le temps du chrono
 void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){
 
-    /*
+    
     if(UiReady){
-        if (lv_scr_act() == ui_ScreenGlobal) {
-            Refresh_ScreenGlobal();
-        } else if (lv_scr_act() == ui_ScreenTemp) {
+
+        if (lv_scr_act() == ui_ScreenHome) {
+            Refresh_ScreenHome();
+        } 
+        else if (lv_scr_act() == ui_ScreenTemp) {
             Refresh_ScreenTemp();
-        } else if (lv_scr_act() == ui_ScreenHum) {
+        } 
+        else if (lv_scr_act() == ui_ScreenHum) {
             Refresh_ScreenHum();
-        } else if (lv_scr_act() == ui_ScreenFan) {
+        }
+        else if (lv_scr_act() == ui_ScreenFan) {
             Refresh_ScreenFan();
         }
+        //else if (lv_scr_act() == ui_ScreenWarning) {
+        //    Refresh_ScreenWarning();
+        //}
+
     }
-    */
+    
 }

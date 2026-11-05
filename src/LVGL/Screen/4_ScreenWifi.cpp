@@ -9,6 +9,22 @@
 #include "Wifi/my_wifi.h"
 #include "ServerWeb/WebSecurity.h"
 
+
+/*
+
+ui_WifiSpinner : Spinner pour faire jolie
+
+ui_WifiSwitchApEnabled : Switch pour activer ou désactiver le mode AP du WiFi
+
+ui_WifiLabelApSsid : label pour afficher le SSID du point d'accès WiFi
+ui_WifiLabelApPass : label pour afficher le mot de passe du point d'accès WiFi
+ui_WifiLabelApIP : label pour afficher l'adresse IP du point d'accès WiFi
+
+ui_WifiLabelLocalIp : label pour afficher l'adresse IP locale du WiFi
+
+
+*/
+
 namespace {
 
 lv_obj_t* adminResetButton = nullptr;
@@ -72,13 +88,13 @@ void createAdminResetButton() {
     lv_obj_set_size(adminResetButton, 200, 36);
     lv_obj_align(adminResetButton, LV_ALIGN_BOTTOM_MID, 0, -4);
     adminResetButtonLabel = lv_label_create(adminResetButton);
-    lv_label_set_text(adminResetButtonLabel, "Réinitialiser accès Web");
+    lv_label_set_text(adminResetButtonLabel, "Reinitialiser acces Web");
     lv_obj_center(adminResetButtonLabel);
     lv_obj_add_event_cb(
         adminResetButton, handleAdminResetButton, LV_EVENT_CLICKED, nullptr);
     if (!HasWebAdminCredential()) {
         lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
-        lv_label_set_text(adminResetButtonLabel, "Accès à configurer via AP");
+        lv_label_set_text(adminResetButtonLabel, "Acces a configurer via AP");
     }
 }
 
@@ -106,6 +122,7 @@ void ScreenWifi_Loaded(lv_event_t * e){
 }
 
 void Refresh_ScreenWifi() {
+
     char apIpText[16];
     char localIpText[16];
 
@@ -124,6 +141,8 @@ void Refresh_ScreenWifi() {
     setLabelTextIfChanged(ui_LabelIP, apIpText);
     setLabelTextIfChanged(ui_LabelLocalIP, localIpText);
 
+
+
     if (adminResetButton != nullptr) {
         if (adminResetConfirmationPending &&
             millis() - adminResetRequestedAt > AdminResetConfirmationWindowMs) {
@@ -133,12 +152,12 @@ void Refresh_ScreenWifi() {
         if (HasWebAdminCredential()) {
             lv_obj_clear_state(adminResetButton, LV_STATE_DISABLED);
             if (!adminResetConfirmationPending && !adminResetFailed) {
-                lv_label_set_text(adminResetButtonLabel, "Réinitialiser accès Web");
+                lv_label_set_text(adminResetButtonLabel, "Reinitialiser acces Web");
             }
         } else {
             lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
             if (!adminResetFailed) {
-                lv_label_set_text(adminResetButtonLabel, "Accès à configurer via AP");
+                lv_label_set_text(adminResetButtonLabel, "Acces a configurer via AP");
             }
         }
     }
