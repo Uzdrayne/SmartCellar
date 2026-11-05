@@ -59,6 +59,7 @@ class HomeAssistantMQTT
     String getValue(String item);
 
     void publishConfigSensor(String deviceClass, String stateClass, String name, String icon, String unit, String startupValue);
+    void publishConfigTextSensor(String name, String icon, String startupValue);
     void publishConfigBinarySensor(String deviceClass, String name, String icon, String payloadOff, String payloadOn, String startupValue);
     void publishConfigNumber(String category, String name, String icon, String unit, String min, String max, String startupValue, String step = "0.1");
     void publishConfigButton(String category, String name, String icon, String commandTopicName, String payload);

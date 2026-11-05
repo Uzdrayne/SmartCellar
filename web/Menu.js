@@ -136,11 +136,16 @@ let LastHardStatus = null;
 
 let UserChanged = false;
 let consigneSaveInProgress = false;
-
 function updateConsigneButtons() {
   const disabled = !UserChanged || consigneSaveInProgress;
   SaveBtnConsigne.disabled = disabled;
   CancelBtnConsigne.disabled = disabled;
+}
+
+function applySetpointLimits(limits) {
+  const setpoints = limits && limits.Setpoints;
+  applyNumericLimits(SliderTemp, setpoints && setpoints.Temperature);
+  applyNumericLimits(SliderHum, setpoints && setpoints.Humidity);
 }
 
 let wsWatchdog; // Timer pour détecter la perte de données
@@ -254,6 +259,7 @@ function isValidNumber(v) {
 
 // --- TRAITEMENT DES DONNÉES ---
 function processData(d) {
+    applySetpointLimits(d.Limits);
 
     let ValTemp = d.Sensor.Temp;
     let ValHum = d.Sensor.Hum;

@@ -23,6 +23,8 @@ namespace WEB {
   extern const size_t Capteur_js_len;
   extern const uint8_t Cold_html[] WEB_STORAGE_ATTR;
   extern const size_t Cold_html_len;
+  extern const uint8_t ConfigurationLimits_js[] WEB_STORAGE_ATTR;
+  extern const size_t ConfigurationLimits_js_len;
   extern const uint8_t Dehum_html[] WEB_STORAGE_ATTR;
   extern const size_t Dehum_html_len;
   extern const uint8_t fan_html[] WEB_STORAGE_ATTR;

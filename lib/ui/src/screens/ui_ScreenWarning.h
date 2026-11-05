@@ -3,18 +3,19 @@
 // LVGL version: 8.3.11
 // Project name: SquareLine_Project
 
-#ifndef UI_WARNINGSPINNER_H
-#define UI_WARNINGSPINNER_H
+#ifndef UI_SCREENWARNING_H
+#define UI_SCREENWARNING_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// SCREEN: ui_WarningSpinner
-extern void ui_WarningSpinner_screen_init(void);
-extern void ui_WarningSpinner_screen_destroy(void);
+// SCREEN: ui_ScreenWarning
+extern void ui_ScreenWarning_screen_init(void);
+extern void ui_ScreenWarning_screen_destroy(void);
+extern void ui_event_ScreenWarning(lv_event_t * e);
+extern lv_obj_t * ui_ScreenWarning;
 extern lv_obj_t * ui_WarningSpinner;
-extern lv_obj_t * ui_SpinnerWarning;
 extern lv_obj_t * ui_WarningSwitchIcon;
 extern lv_obj_t * ui_WarningLabelAlerte;
 extern lv_obj_t * ui_WarningLabelReason;

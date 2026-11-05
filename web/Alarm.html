@@ -26,10 +26,9 @@
   <input
     type="number"
     id="HighTemperatureThreshold"
-    min="0"
-    max="40"
     step="0.1"
     required
+    disabled
   >
   <p>
     L'alerte se déclenche si la température corrigée dépasse ce seuil pendant
@@ -46,8 +45,10 @@
   <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
 </div>
 
+<script src="/ConfigurationLimits.js"></script>
 <script>
 let userChanged = false;
+let alarmThresholdLimits = null;
 
 const thresholdInput = document.getElementById("HighTemperatureThreshold");
 const alertState = document.getElementById("AlertState");
@@ -83,9 +84,18 @@ async function updateStatus() {
 
     const data = await response.json();
     if (typeof data.thresholdC !== "number" ||
+        typeof data.thresholdMinC !== "number" ||
+        typeof data.thresholdMaxC !== "number" ||
         typeof data.alertActive !== "boolean" ||
         typeof data.alertReason !== "string") {
       throw new Error("État des alertes invalide");
+    }
+    alarmThresholdLimits = {
+      Min: data.thresholdMinC,
+      Max: data.thresholdMaxC
+    };
+    if (!applyNumericLimits(thresholdInput, alarmThresholdLimits)) {
+      throw new Error("Limites du seuil d'alerte invalides");
     }
 
     if (!userChanged) {
@@ -112,8 +122,11 @@ async function updateStatus() {
 
 async function saveAlarmSettings() {
   const thresholdC = thresholdInput.valueAsNumber;
-  if (!Number.isFinite(thresholdC) || thresholdC < 0 || thresholdC > 40) {
-    alert("Le seuil doit être compris entre 0 et 40 °C.");
+  if (!isWithinNumericLimits(thresholdC, alarmThresholdLimits)) {
+    const thresholdRange = alarmThresholdLimits
+      ? formatNumericLimits(alarmThresholdLimits)
+      : "indisponible";
+    alert(`Le seuil doit être compris entre ${thresholdRange} °C.`);
     return;
   }
 

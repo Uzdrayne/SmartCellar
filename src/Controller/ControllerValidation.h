@@ -3,18 +3,8 @@
 
 #include <Arduino.h>
 
+#include "Controller/ConfigurationLimits.h"
 #include "Data/ControllerData.h"
-
-constexpr float MinTemperatureSetpointC = 5.0f;
-constexpr float MaxTemperatureSetpointC = 30.0f;
-constexpr float MinHumiditySetpointPercent = 40.0f;
-constexpr float MaxHumiditySetpointPercent = 100.0f;
-constexpr float MaxTemperatureOffsetC = 5.0f;
-constexpr float MaxHumidityOffsetPercent = 10.0f;
-constexpr float MaxTemperatureHysteresisC = 5.0f;
-constexpr float MaxHumidityHysteresisPercent = 10.0f;
-constexpr unsigned int MinRelayDelaySeconds = 5;
-constexpr unsigned int MaxRelayDelaySeconds = 1800;
 
 bool ParseFiniteFloat(const String& text, float& value);
 bool ParseBoundedUnsigned(const String& text, unsigned int minimum,

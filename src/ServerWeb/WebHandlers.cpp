@@ -9,6 +9,7 @@
 
 #include "ServerWeb/PageWeb/web_assets.h"
 
+#include "Controller/ConfigurationLimits.h"
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
 #include "Alarm/SafetyAlarm.h"
@@ -65,8 +66,10 @@ void handleRelaySettingsSave(AsyncWebServerRequest *request, RelaySettingsKind k
   unsigned int delayMinOn;
   unsigned int delayMinOff;
   if (!parseRelaySettings(request, hysHigh, hysLow, delayMinOn, delayMinOff)) {
-    request->send(400, "text/plain",
-                  "Paramètres manquants ou invalides. Vérifiez les nombres et les délais (5 à 1800 s).");
+    String errorMessage = "Paramètres manquants ou invalides. Vérifiez les nombres et les délais (";
+    errorMessage += String(MinRelayDelaySeconds) + " à " +
+        String(MaxRelayDelaySeconds) + " s).";
+    request->send(400, "text/plain", errorMessage);
     return;
   }
 
@@ -177,8 +180,12 @@ void handleSaveConsignes(AsyncWebServerRequest *request) {
       !ParseFiniteFloat(request->arg("Temp"), newSetTemp) ||
       !ParseFiniteFloat(request->arg("Hum"), newSetHum) ||
       !IsValidSetpoints(newSetTemp, newSetHum)) {
-    request->send(400, "text/plain",
-                  "Consignes invalides : température 5–30 °C, humidité 40–100 %.");
+    String errorMessage = "Consignes invalides : température ";
+    errorMessage += String(MinTemperatureSetpointC, 2) + "–" +
+        String(MaxTemperatureSetpointC, 2) + " °C, humidité " +
+        String(MinHumiditySetpointPercent, 2) + "–" +
+        String(MaxHumiditySetpointPercent, 2) + " %.";
+    request->send(400, "text/plain", errorMessage);
     return;
   }
 
@@ -262,9 +269,18 @@ void handleSaveMqtt(AsyncWebServerRequest *request) {
      request->hasArg("mqtt_port") && request->hasArg("MQTTUSER") &&
      request->hasArg("NAME")) {
 
+    unsigned int mqttPortValue;
+    if (!ParseBoundedUnsigned(request->arg("mqtt_port"), MinMqttPort,
+                              MaxMqttPort, mqttPortValue)) {
+      String errorMessage = "Port MQTT invalide : il doit être compris entre ";
+      errorMessage += String(MinMqttPort) + " et " + String(MaxMqttPort) + ".";
+      request->send(400, "text/plain", errorMessage);
+      return;
+    }
+
     bool MqttEnable = request->arg("MqttEnable").toInt() != 0 ;
     String MqttServer = request->arg("mqtt_server");
-    uint16_t MqttPort = request->arg("mqtt_port").toInt();
+    const uint16_t MqttPort = static_cast<uint16_t>(mqttPortValue);
     String MqttUser = request->arg("MQTTUSER");                   
     const String MqttPassword = request->hasArg("MQTTPASSWORD")
         ? request->arg("MQTTPASSWORD")
@@ -341,8 +357,12 @@ void handleSaveCapteurCalibration(AsyncWebServerRequest *request) {
       !ParseFiniteFloat(request->arg("HumValue"), newHumOffset) ||
       !IsValidTemperatureOffset(newTempOffset) ||
       !IsValidHumidityOffset(newHumOffset)) {
-    request->send(400, "text/plain",
-                  "Calibration invalide : offset température ±5 °C, humidité ±10 points.");
+    String errorMessage = "Calibration invalide : offset température ";
+    errorMessage += String(MinTemperatureOffsetC, 2) + " à " +
+        String(MaxTemperatureOffsetC, 2) + " °C, humidité " +
+        String(MinHumidityOffsetPercent, 2) + " à " +
+        String(MaxHumidityOffsetPercent, 2) + " points.";
+    request->send(400, "text/plain", errorMessage);
     return;
   }
 
@@ -378,16 +398,8 @@ void handleHumSave(AsyncWebServerRequest *request) {
 }
 
 bool parseFanDuration(const String& text, unsigned int& duration) {
-  const char *start = text.c_str();
-  char *end = nullptr;
-  const long parsed = strtol(start, &end, 10);
-  if (start == end || *end != '\0' ||
-      parsed < FanDurationMinMinutes || parsed > FanDurationMaxMinutes) {
-    return false;
-  }
-
-  duration = static_cast<unsigned int>(parsed);
-  return true;
+  return ParseBoundedUnsigned(text, FanDurationMinMinutes,
+                              FanDurationMaxMinutes, duration);
 }
 
 void handleFanSave(AsyncWebServerRequest *request) {
@@ -408,7 +420,10 @@ void handleFanSave(AsyncWebServerRequest *request) {
   unsigned int offMinutes;
   if (!parseFanDuration(request->arg("FanOnMinutes"), onMinutes) ||
       !parseFanDuration(request->arg("FanOffMinutes"), offMinutes)) {
-    request->send(400, "text/plain", "Les durées doivent être comprises entre 1 et 1440 minutes.");
+    String errorMessage = "Les durées doivent être comprises entre ";
+    errorMessage += String(FanDurationMinMinutes) + " et " +
+        String(FanDurationMaxMinutes) + " minutes.";
+    request->send(400, "text/plain", errorMessage);
     return;
   }
 
@@ -465,9 +480,10 @@ void handleSafetyAlarmSave(AsyncWebServerRequest *request) {
   if (!ParseFiniteFloat(request->arg("thresholdC"), thresholdC) ||
       thresholdC < SafetyAlarmThresholdMinC ||
       thresholdC > SafetyAlarmThresholdMaxC) {
-    request->send(
-        400, "text/plain",
-        "Le seuil doit être compris entre 0 et 40 °C.");
+    String errorMessage = "Le seuil doit être compris entre ";
+    errorMessage += String(SafetyAlarmThresholdMinC, 2) + " et " +
+        String(SafetyAlarmThresholdMaxC, 2) + " °C.";
+    request->send(400, "text/plain", errorMessage);
     return;
   }
 

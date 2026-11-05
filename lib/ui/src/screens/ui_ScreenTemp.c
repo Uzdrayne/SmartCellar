@@ -15,7 +15,7 @@ lv_obj_t * ui_TempLabelCurrentTemp = NULL;
 lv_obj_t * ui_TempLabelCurrentTempUnit = NULL;
 lv_obj_t * ui_TempSwitchHeatState = NULL;
 lv_obj_t * ui_TempSwitchColdState = NULL;
-lv_obj_t * ui_TempSwitchOption = NULL;
+lv_obj_t * ui_TempButtonOption = NULL;
 lv_obj_t * ui_TempSwitchLock = NULL;
 // event funtions
 void ui_event_ScreenTemp(lv_event_t * e)
@@ -24,11 +24,44 @@ void ui_event_ScreenTemp(lv_event_t * e)
 
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_ScreenHum, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenHum_screen_init);
+        ScreenTempGestUp(e);
     }
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_ScreenHome, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenHome_screen_init);
+        ScreenTempGestDown(e);
+    }
+}
+
+void ui_event_TempArcSetTemp(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_VALUE_CHANGED) {
+        TempArcSetTempValueChanged(e);
+    }
+    if(event_code == LV_EVENT_RELEASED) {
+        TempArcSetTempReleased(e);
+    }
+    if(event_code == LV_EVENT_PRESS_LOST) {
+        TempArcSetTempPressLost(e);
+    }
+}
+
+void ui_event_TempButtonOption(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        TempButtonOptionClicked(e);
+    }
+}
+
+void ui_event_TempSwitchLock(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        TempSwitchLockClicked(e);
     }
 }
 
@@ -51,6 +84,8 @@ void ui_ScreenTemp_screen_init(void)
     lv_obj_set_style_arc_width(ui_TempArcSetTemp, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_set_style_arc_width(ui_TempArcSetTemp, 4, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_TempArcSetTemp, lv_color_hex(0x1B1B5B), LV_PART_INDICATOR | LV_STATE_DISABLED);
+    lv_obj_set_style_arc_opa(ui_TempArcSetTemp, 255, LV_PART_INDICATOR | LV_STATE_DISABLED);
 
     ui_TempLabelConsigneTxt = lv_label_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempLabelConsigneTxt, LV_SIZE_CONTENT);   /// 1
@@ -63,10 +98,10 @@ void ui_ScreenTemp_screen_init(void)
     ui_TempLabelSetTemp = lv_label_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempLabelSetTemp, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempLabelSetTemp, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempLabelSetTemp, 0);
+    lv_obj_set_x(ui_TempLabelSetTemp, -3);
     lv_obj_set_y(ui_TempLabelSetTemp, -35);
     lv_obj_set_align(ui_TempLabelSetTemp, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_TempLabelSetTemp, "11.5");
+    lv_label_set_text(ui_TempLabelSetTemp, "00.0");
     lv_obj_set_style_text_color(ui_TempLabelSetTemp, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_TempLabelSetTemp, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_TempLabelSetTemp, &lv_font_montserrat_44, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -74,7 +109,7 @@ void ui_ScreenTemp_screen_init(void)
     ui_TempLabelSetTempUnit = lv_label_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempLabelSetTempUnit, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempLabelSetTempUnit, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempLabelSetTempUnit, 45);
+    lv_obj_set_x(ui_TempLabelSetTempUnit, 50);
     lv_obj_set_y(ui_TempLabelSetTempUnit, -45);
     lv_obj_set_align(ui_TempLabelSetTempUnit, LV_ALIGN_CENTER);
     lv_label_set_text(ui_TempLabelSetTempUnit, "°C");
@@ -93,10 +128,10 @@ void ui_ScreenTemp_screen_init(void)
     ui_TempLabelCurrentTemp = lv_label_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempLabelCurrentTemp, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempLabelCurrentTemp, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempLabelCurrentTemp, 0);
+    lv_obj_set_x(ui_TempLabelCurrentTemp, -3);
     lv_obj_set_y(ui_TempLabelCurrentTemp, 40);
     lv_obj_set_align(ui_TempLabelCurrentTemp, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_TempLabelCurrentTemp, "12.6");
+    lv_label_set_text(ui_TempLabelCurrentTemp, "00.0");
     lv_obj_set_style_text_color(ui_TempLabelCurrentTemp, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_TempLabelCurrentTemp, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_TempLabelCurrentTemp, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -104,7 +139,7 @@ void ui_ScreenTemp_screen_init(void)
     ui_TempLabelCurrentTempUnit = lv_label_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempLabelCurrentTempUnit, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempLabelCurrentTempUnit, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempLabelCurrentTempUnit, 38);
+    lv_obj_set_x(ui_TempLabelCurrentTempUnit, 36);
     lv_obj_set_y(ui_TempLabelCurrentTempUnit, 35);
     lv_obj_set_align(ui_TempLabelCurrentTempUnit, LV_ALIGN_CENTER);
     lv_label_set_text(ui_TempLabelCurrentTempUnit, "°C");
@@ -154,27 +189,15 @@ void ui_ScreenTemp_screen_init(void)
     lv_obj_set_style_bg_color(ui_TempSwitchColdState, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_TempSwitchColdState, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
-    ui_TempSwitchOption = lv_switch_create(ui_ScreenTemp);
-    lv_obj_set_width(ui_TempSwitchOption, 24);
-    lv_obj_set_height(ui_TempSwitchOption, 24);
-    lv_obj_set_x(ui_TempSwitchOption, -80);
-    lv_obj_set_y(ui_TempSwitchOption, 0);
-    lv_obj_set_align(ui_TempSwitchOption, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_TempSwitchOption,
-                      LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
-                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
-    lv_obj_set_style_bg_color(ui_TempSwitchOption, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_TempSwitchOption, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_TempSwitchOption, &ui_img_roue_dentee_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_TempSwitchOption, &ui_img_roue_dentee_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_TempSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_TempSwitchOption, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_TempSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_opa(ui_TempSwitchOption, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_TempSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_TempSwitchOption, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+    ui_TempButtonOption = lv_imgbtn_create(ui_ScreenTemp);
+    lv_imgbtn_set_src(ui_TempButtonOption, LV_IMGBTN_STATE_RELEASED, NULL, &ui_img_roue_dentee_on_png, NULL);
+    lv_imgbtn_set_src(ui_TempButtonOption, LV_IMGBTN_STATE_DISABLED, NULL, &ui_img_roue_dentee_off_png, NULL);
+    lv_obj_set_width(ui_TempButtonOption, 24);
+    lv_obj_set_height(ui_TempButtonOption, 24);
+    lv_obj_set_x(ui_TempButtonOption, -80);
+    lv_obj_set_y(ui_TempButtonOption, 0);
+    lv_obj_set_align(ui_TempButtonOption, LV_ALIGN_CENTER);
+    lv_obj_add_state(ui_TempButtonOption, LV_STATE_DISABLED);       /// States
 
     ui_TempSwitchLock = lv_switch_create(ui_ScreenTemp);
     lv_obj_set_width(ui_TempSwitchLock, 40);
@@ -196,6 +219,9 @@ void ui_ScreenTemp_screen_init(void)
     lv_obj_set_style_bg_color(ui_TempSwitchLock, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_TempSwitchLock, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
+    lv_obj_add_event_cb(ui_TempArcSetTemp, ui_event_TempArcSetTemp, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_TempButtonOption, ui_event_TempButtonOption, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_TempSwitchLock, ui_event_TempSwitchLock, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ScreenTemp, ui_event_ScreenTemp, LV_EVENT_ALL, NULL);
 
 }
@@ -215,7 +241,7 @@ void ui_ScreenTemp_screen_destroy(void)
     ui_TempLabelCurrentTempUnit = NULL;
     ui_TempSwitchHeatState = NULL;
     ui_TempSwitchColdState = NULL;
-    ui_TempSwitchOption = NULL;
+    ui_TempButtonOption = NULL;
     ui_TempSwitchLock = NULL;
 
 }

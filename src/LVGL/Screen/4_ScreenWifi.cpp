@@ -106,16 +106,16 @@ void ScreenWifi_Loaded(lv_event_t * e){
 
     StateSwitchAP = (WiFi.getMode() & WIFI_AP) != 0;
 
-    set_switch_state(ui_SwitchApEnabled,StateSwitchAP);
+   // set_switch_state(ui_SwitchApEnabled,StateSwitchAP);
 
     const lv_color_t statusColor = StateSwitchAP
         ? lv_color_make(0, 200, 0)
         : lv_color_make(200, 0, 0);
-    lv_obj_set_style_text_color(ui_LabelWifiApEnabled, statusColor, 0);
-    lv_label_set_text(ui_LabelWifiApEnabled, StateSwitchAP ? "ON" : "OFF");
+   // lv_obj_set_style_text_color(ui_LabelWifiApEnabled, statusColor, 0);
+   // lv_label_set_text(ui_LabelWifiApEnabled, StateSwitchAP ? "ON" : "OFF");
 
-    lv_label_set_text(ui_LabelAPSsid,APSsid.c_str());
-    lv_label_set_text(ui_LabelAPPass,APPass.c_str());
+
+
     createAdminResetButton();
     Refresh_ScreenWifi();
 
@@ -138,9 +138,12 @@ void Refresh_ScreenWifi() {
         snprintf(localIpText, sizeof(localIpText), "Not connected");
     }
 
-    setLabelTextIfChanged(ui_LabelIP, apIpText);
-    setLabelTextIfChanged(ui_LabelLocalIP, localIpText);
 
+    lv_label_set_text(ui_WifiLabelApSsid,APSsid.c_str()); //SSID
+    lv_label_set_text(ui_WifiLabelApPass,APPass.c_str()); //Password
+    lv_label_set_text(ui_WifiLabelApIP,apIpText); //IP
+
+    lv_label_set_text(ui_WifiLabelLocalIp, localIpText); //Local IP
 
 
     if (adminResetButton != nullptr) {
@@ -167,7 +170,8 @@ void Refresh_ScreenWifi() {
 
 void SwitchAPEnable(lv_event_t * e){
 
-    if(lv_obj_has_state(ui_SwitchApEnabled, LV_STATE_CHECKED)) {
+    
+    if(lv_obj_has_state(ui_WifiSwitchApEnabled, LV_STATE_CHECKED)) {
         Serial.println("démarrage du mode AP");
         StartAccessPoint();
 
@@ -176,14 +180,14 @@ void SwitchAPEnable(lv_event_t * e){
         Serial.println(ip);
 
 
-        lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(0, 200, 0),0);
-        lv_label_set_text(ui_LabelWifiApEnabled,"ON");
+        //lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(0, 200, 0),0);
+        //lv_label_set_text(ui_LabelWifiApEnabled,"ON");
 
     } else {
         Serial.println("désactivation du mode AP");
         ConnectToWifi();
-        lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(200, 0, 0),0);
-        lv_label_set_text(ui_LabelWifiApEnabled,"OFF");
+        //lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(200, 0, 0),0);
+       // lv_label_set_text(ui_LabelWifiApEnabled,"OFF");
     }
 
     Refresh_ScreenWifi();

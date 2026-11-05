@@ -16,6 +16,8 @@ void HomeAssistantMQTT::setCallback(CallbackFunction f)
 
 void HomeAssistantMQTT::begin(WiFiClient* wifiClient, const char* server, const uint16_t port)
 {
+  if (mqttClient != nullptr) return;
+
   // Build availability topic: <Manufacturer>/<DeviceName>/state
   {
     const size_t ln = Manufacturer.length() + 1 + DeviceName.length() + 1 + 5 + 1; // man + '/' + dev + '/' + "state" + '\0'
@@ -121,6 +123,11 @@ void HomeAssistantMQTT::publishConfigSensor(String deviceClass, String stateClas
   String complement = ",\"suggested_display_precision\":2";
 
   publishConfig("sensor", "", deviceClass, stateClass, name, icon, unit, false, true, "", complement, startupValue);
+}
+
+void HomeAssistantMQTT::publishConfigTextSensor(String name, String icon, String startupValue)
+{
+  publishConfig("sensor", "", "", "", name, icon, "", false, true, "", "", startupValue);
 }
 
 void HomeAssistantMQTT::publishConfigBinarySensor(String deviceClass, String name, String icon, String payloadOff, String payloadOn, String startupValue)

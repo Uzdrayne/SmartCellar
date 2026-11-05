@@ -186,8 +186,8 @@ void sendControllerConfigurationIfChanged(bool force, unsigned long now) {
     Serial1.write(reinterpret_cast<const uint8_t*>(serializedMessage), serializedLength);
     Serial1.write('\n');
 
-    Serial.write(reinterpret_cast<const uint8_t*>(serializedMessage), serializedLength);
-    Serial.write('\n');
+    //Serial.write(reinterpret_cast<const uint8_t*>(serializedMessage), serializedLength);
+    //Serial.write('\n');
 
     lastConfigurationRevision = revision;
     lastSentConfiguration = configuration;

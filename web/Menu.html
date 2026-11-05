@@ -19,13 +19,13 @@
   <div class="card">
     <h3>🌡 Température : <span id="LabelTemp">--</span> °C</h3>
     <p>Consigne Temp : <span id="LabelConsigneTemp">--</span> °C</p>
-    <input type="range" id="SliderSetTemp" min="5" max="30" step="0.25">
+    <input type="range" id="SliderSetTemp" step="0.25" disabled>
   </div>
 
   <div class="card">
     <h3>💧 Humidité : <span id="LabelHum">--</span> %</h3>
     <p>Consigne Humidité : <span id="LabelConsigneHum">--</span> %</p>
-    <input type="range" id="SliderSetHum" min="40" max="100" step="1">
+    <input type="range" id="SliderSetHum" step="1" disabled>
   </div>
 
   <div class="card">
@@ -222,6 +222,7 @@
 
 
 
+<script src="/ConfigurationLimits.js"></script>
 <script src="/Menu.js"></script>
 
 </body>

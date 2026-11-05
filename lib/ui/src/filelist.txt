@@ -3,7 +3,7 @@ screens/ui_ScreenTemp.c
 screens/ui_ScreenHum.c
 screens/ui_ScreenFan.c
 screens/ui_ScreenWifi.c
-screens/ui_WarningSpinner.c
+screens/ui_ScreenWarning.c
 ui.c
 components/ui_comp_hook.c
 ui_helpers.c
@@ -23,9 +23,13 @@ images/ui_img_deshumidificateur_off_png.c
 images/ui_img_deshumidificateur_on_png.c
 images/ui_img_ventilation_off_png.c
 images/ui_img_ventilation_on_png.c
-images/ui_img_roue_dentee_off_png.c
 images/ui_img_roue_dentee_on_png.c
+images/ui_img_roue_dentee_off_png.c
 images/ui_img_cadenas_ferme_on_png.c
 images/ui_img_cadenas_ouvert_on_png.c
+images/ui_img_plus_24_off_png.c
+images/ui_img_plus_24_on_png.c
+images/ui_img_moins_24_off_png.c
+images/ui_img_moins_24_on_png.c
 images/ui_img_warning_60_png.c
 images/ui_img_warning_60_plein_png.c

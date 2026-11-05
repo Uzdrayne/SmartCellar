@@ -6,7 +6,7 @@
 #include "../ui.h"
 
 lv_obj_t * ui_ScreenHum = NULL;
-lv_obj_t * ui_ArcSetHum = NULL;
+lv_obj_t * ui_HumArcSetHum = NULL;
 lv_obj_t * ui_HumLabelConsigneTxt = NULL;
 lv_obj_t * ui_HumLabelSetHum = NULL;
 lv_obj_t * ui_HumLabelSetHumUnit = NULL;
@@ -15,7 +15,7 @@ lv_obj_t * ui_HumLabelCurrentHum = NULL;
 lv_obj_t * ui_HumLabelCurrentHumUnit = NULL;
 lv_obj_t * ui_HumSwitchHumState = NULL;
 lv_obj_t * ui_HumSwitchDehumState = NULL;
-lv_obj_t * ui_HumSwitchOption = NULL;
+lv_obj_t * ui_HumButtonOption = NULL;
 lv_obj_t * ui_HumSwitchLock = NULL;
 // event funtions
 void ui_event_ScreenHum(lv_event_t * e)
@@ -24,11 +24,44 @@ void ui_event_ScreenHum(lv_event_t * e)
 
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_ScreenTemp, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenTemp_screen_init);
+        ScreenHumGestUp(e);
     }
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
         lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_ScreenFan, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenFan_screen_init);
+        ScreenHumGestDown(e);
+    }
+}
+
+void ui_event_HumArcSetHum(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_VALUE_CHANGED) {
+        HumArcSetHumValueChanged(e);
+    }
+    if(event_code == LV_EVENT_RELEASED) {
+        HumArcSetHumReleased(e);
+    }
+    if(event_code == LV_EVENT_PRESS_LOST) {
+        HumArcSetHumPressLost(e);
+    }
+}
+
+void ui_event_HumButtonOption(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        HumButtonOptionClicked(e);
+    }
+}
+
+void ui_event_HumSwitchLock(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        HumSwitchLockClicked(e);
     }
 }
 
@@ -41,21 +74,23 @@ void ui_ScreenHum_screen_init(void)
     lv_obj_set_style_bg_color(ui_ScreenHum, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_ScreenHum, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_ArcSetHum = lv_arc_create(ui_ScreenHum);
-    lv_obj_set_width(ui_ArcSetHum, 225);
-    lv_obj_set_height(ui_ArcSetHum, 225);
-    lv_obj_set_align(ui_ArcSetHum, LV_ALIGN_CENTER);
-    lv_arc_set_range(ui_ArcSetHum, 20, 100);
-    lv_arc_set_value(ui_ArcSetHum, 82);
-    lv_arc_set_bg_angles(ui_ArcSetHum, 125, 55);
-    lv_obj_set_style_arc_width(ui_ArcSetHum, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_HumArcSetHum = lv_arc_create(ui_ScreenHum);
+    lv_obj_set_width(ui_HumArcSetHum, 225);
+    lv_obj_set_height(ui_HumArcSetHum, 225);
+    lv_obj_set_align(ui_HumArcSetHum, LV_ALIGN_CENTER);
+    lv_arc_set_range(ui_HumArcSetHum, 20, 100);
+    lv_arc_set_value(ui_HumArcSetHum, 82);
+    lv_arc_set_bg_angles(ui_HumArcSetHum, 125, 55);
+    lv_obj_set_style_arc_width(ui_HumArcSetHum, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_arc_color(ui_ArcSetHum, lv_color_hex(0xD3FF40), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_opa(ui_ArcSetHum, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_width(ui_ArcSetHum, 4, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_HumArcSetHum, lv_color_hex(0xD3FF40), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_opa(ui_HumArcSetHum, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_width(ui_HumArcSetHum, 4, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_HumArcSetHum, lv_color_hex(0x566620), LV_PART_INDICATOR | LV_STATE_DISABLED);
+    lv_obj_set_style_arc_opa(ui_HumArcSetHum, 255, LV_PART_INDICATOR | LV_STATE_DISABLED);
 
-    lv_obj_set_style_bg_color(ui_ArcSetHum, lv_color_hex(0xABF507), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_ArcSetHum, 255, LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_HumArcSetHum, lv_color_hex(0xABF507), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_HumArcSetHum, 255, LV_PART_KNOB | LV_STATE_DEFAULT);
 
     ui_HumLabelConsigneTxt = lv_label_create(ui_ScreenHum);
     lv_obj_set_width(ui_HumLabelConsigneTxt, LV_SIZE_CONTENT);   /// 1
@@ -71,7 +106,7 @@ void ui_ScreenHum_screen_init(void)
     lv_obj_set_x(ui_HumLabelSetHum, 0);
     lv_obj_set_y(ui_HumLabelSetHum, -35);
     lv_obj_set_align(ui_HumLabelSetHum, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HumLabelSetHum, "86");
+    lv_label_set_text(ui_HumLabelSetHum, "00");
     lv_obj_set_style_text_color(ui_HumLabelSetHum, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_HumLabelSetHum, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_HumLabelSetHum, &lv_font_montserrat_44, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -79,7 +114,7 @@ void ui_ScreenHum_screen_init(void)
     ui_HumLabelSetHumUnit = lv_label_create(ui_ScreenHum);
     lv_obj_set_width(ui_HumLabelSetHumUnit, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_HumLabelSetHumUnit, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_HumLabelSetHumUnit, 41);
+    lv_obj_set_x(ui_HumLabelSetHumUnit, 38);
     lv_obj_set_y(ui_HumLabelSetHumUnit, -45);
     lv_obj_set_align(ui_HumLabelSetHumUnit, LV_ALIGN_CENTER);
     lv_label_set_text(ui_HumLabelSetHumUnit, "%");
@@ -101,7 +136,7 @@ void ui_ScreenHum_screen_init(void)
     lv_obj_set_x(ui_HumLabelCurrentHum, 0);
     lv_obj_set_y(ui_HumLabelCurrentHum, 40);
     lv_obj_set_align(ui_HumLabelCurrentHum, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HumLabelCurrentHum, "82");
+    lv_label_set_text(ui_HumLabelCurrentHum, "00");
     lv_obj_set_style_text_color(ui_HumLabelCurrentHum, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_HumLabelCurrentHum, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_HumLabelCurrentHum, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -109,7 +144,7 @@ void ui_ScreenHum_screen_init(void)
     ui_HumLabelCurrentHumUnit = lv_label_create(ui_ScreenHum);
     lv_obj_set_width(ui_HumLabelCurrentHumUnit, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_HumLabelCurrentHumUnit, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_HumLabelCurrentHumUnit, 30);
+    lv_obj_set_x(ui_HumLabelCurrentHumUnit, 28);
     lv_obj_set_y(ui_HumLabelCurrentHumUnit, 35);
     lv_obj_set_align(ui_HumLabelCurrentHumUnit, LV_ALIGN_CENTER);
     lv_label_set_text(ui_HumLabelCurrentHumUnit, "%");
@@ -161,27 +196,15 @@ void ui_ScreenHum_screen_init(void)
     lv_obj_set_style_bg_color(ui_HumSwitchDehumState, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_HumSwitchDehumState, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
-    ui_HumSwitchOption = lv_switch_create(ui_ScreenHum);
-    lv_obj_set_width(ui_HumSwitchOption, 24);
-    lv_obj_set_height(ui_HumSwitchOption, 24);
-    lv_obj_set_x(ui_HumSwitchOption, -80);
-    lv_obj_set_y(ui_HumSwitchOption, 0);
-    lv_obj_set_align(ui_HumSwitchOption, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_HumSwitchOption,
-                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
-                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
-    lv_obj_set_style_bg_color(ui_HumSwitchOption, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_HumSwitchOption, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_HumSwitchOption, &ui_img_roue_dentee_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_img_src(ui_HumSwitchOption, &ui_img_roue_dentee_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_HumSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_HumSwitchOption, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_HumSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_opa(ui_HumSwitchOption, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
-
-    lv_obj_set_style_bg_color(ui_HumSwitchOption, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_HumSwitchOption, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+    ui_HumButtonOption = lv_imgbtn_create(ui_ScreenHum);
+    lv_imgbtn_set_src(ui_HumButtonOption, LV_IMGBTN_STATE_RELEASED, NULL, &ui_img_roue_dentee_on_png, NULL);
+    lv_imgbtn_set_src(ui_HumButtonOption, LV_IMGBTN_STATE_DISABLED, NULL, &ui_img_roue_dentee_off_png, NULL);
+    lv_obj_set_width(ui_HumButtonOption, 24);
+    lv_obj_set_height(ui_HumButtonOption, 24);
+    lv_obj_set_x(ui_HumButtonOption, -80);
+    lv_obj_set_y(ui_HumButtonOption, 0);
+    lv_obj_set_align(ui_HumButtonOption, LV_ALIGN_CENTER);
+    lv_obj_add_state(ui_HumButtonOption, LV_STATE_DISABLED);       /// States
 
     ui_HumSwitchLock = lv_switch_create(ui_ScreenHum);
     lv_obj_set_width(ui_HumSwitchLock, 40);
@@ -202,6 +225,9 @@ void ui_ScreenHum_screen_init(void)
     lv_obj_set_style_bg_color(ui_HumSwitchLock, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_HumSwitchLock, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
+    lv_obj_add_event_cb(ui_HumArcSetHum, ui_event_HumArcSetHum, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_HumButtonOption, ui_event_HumButtonOption, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_HumSwitchLock, ui_event_HumSwitchLock, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ScreenHum, ui_event_ScreenHum, LV_EVENT_ALL, NULL);
 
 }
@@ -212,7 +238,7 @@ void ui_ScreenHum_screen_destroy(void)
 
     // NULL screen variables
     ui_ScreenHum = NULL;
-    ui_ArcSetHum = NULL;
+    ui_HumArcSetHum = NULL;
     ui_HumLabelConsigneTxt = NULL;
     ui_HumLabelSetHum = NULL;
     ui_HumLabelSetHumUnit = NULL;
@@ -221,7 +247,7 @@ void ui_ScreenHum_screen_destroy(void)
     ui_HumLabelCurrentHumUnit = NULL;
     ui_HumSwitchHumState = NULL;
     ui_HumSwitchDehumState = NULL;
-    ui_HumSwitchOption = NULL;
+    ui_HumButtonOption = NULL;
     ui_HumSwitchLock = NULL;
 
 }

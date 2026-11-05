@@ -5,6 +5,7 @@
 #include <HomeAssistantMQTT.h>
 
 #include "Alarm/SafetyAlarm.h"
+#include "Controller/ConfigurationLimits.h"
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
 
@@ -19,6 +20,7 @@ void publishMqttValues(unsigned long Now);
 
 //indique qu'on à deja envoyé l'autoDiscovery
 bool _bMqttConfigPublished = false;
+bool _bMqttClientInitialized = false;
 
 //Temps dernier envoie d'un message
 unsigned long  mqttLastSend = 0; 
@@ -62,6 +64,11 @@ unsigned long  T_ActualHumidityCorr = 0;
 //fonction pour se connecter
 void ConnectMqtt(){
 
+    // Keep the existing client across Wi-Fi reconnects; mqtt.loop() reconnects it.
+    if (_bMqttClientInitialized) {
+        return;
+    }
+
     String mac = WiFi.macAddress();
     // Remove ':' to build a compact MAC string
     String MAC = mac.substring(0, 2) + mac.substring(3, 5) + mac.substring(6, 8) + mac.substring(9, 11) + mac.substring(12, 14) + mac.substring(15, 17);
@@ -76,6 +83,7 @@ void ConnectMqtt(){
     mqtt.DeviceName = DataMqtt.MqttManu + "_" + DataMqtt.MqttModel + "_" + MAC;
     mqtt.setCallback(HAMQTT_Callback);
     mqtt.begin(&wifiClient, DataMqtt.MqttServer.c_str(), DataMqtt.MqttPort);
+    _bMqttClientInitialized = true;
 
 }
 
@@ -131,8 +139,8 @@ void publishMqttConfig()
     mqtt.publishConfigBinarySensor(
         "problem", "DeviceAlert", "mdi:alert",
         "false", "true", alarmStatus.AlertActive ? "true" : "false");
-    mqtt.publishConfigSensor(
-        "", "", "AlertStatus", "mdi:alert-circle-outline", "",
+    mqtt.publishConfigTextSensor(
+        "AlertStatus", "mdi:alert-circle-outline",
         GetSafetyAlarmReasonText(alarmStatus));
     mqtt.publishConfigSensor(
         "temperature", "measurement", "LastValidTemperature",
@@ -146,8 +154,14 @@ void publishMqttConfig()
             ? String(alarmStatus.LastMeasurementAgeSeconds)
             : "unknown");
 
-    mqtt.publishConfigNumber("config", "ConsigneTemperature", "mdi:Thermometer-Lines", "°C", "5", "30", String(LocalData.SetTemp));
-    mqtt.publishConfigNumber("config", "ConsigneHumidity", "mdi:water-percent", "%", "40", "100", String(LocalData.SetHum));
+    mqtt.publishConfigNumber(
+        "config", "ConsigneTemperature", "mdi:Thermometer-Lines", "°C",
+        String(MinTemperatureSetpointC, 2), String(MaxTemperatureSetpointC, 2),
+        String(LocalData.SetTemp));
+    mqtt.publishConfigNumber(
+        "config", "ConsigneHumidity", "mdi:water-percent", "%",
+        String(MinHumiditySetpointPercent, 2), String(MaxHumiditySetpointPercent, 2),
+        String(LocalData.SetHum));
 
     mqtt.publishConfigBinarySensor("", "Cold_Relay", "", "false", "true", LocalData.ColdState ? "true" : "false");
     mqtt.publishConfigBinarySensor("", "Heat_Relay", "", "false", "true", LocalData.HeatState ? "true" : "false");

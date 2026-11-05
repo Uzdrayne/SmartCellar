@@ -20,13 +20,13 @@
 
         <div class="card">
             <h3>📈 Seuil Haut (%)</h3>
-            <input type="number" id="HysHigh" min="0" max="10" step="0.05" placeholder="%">
+            <input type="number" id="HysHigh" step="0.05" placeholder="%" disabled>
             <p>Delta par rapport à la consigne pour activer le Déhumidificateur.</p>
         </div>
 
         <div class="card">
             <h3>📉​ Seuil Bas (%)</h3>
-            <input type="number" id="HysLow" min="0" max="10" step="0.05" placeholder="%">
+            <input type="number" id="HysLow" step="0.05" placeholder="%" disabled>
             <p>Delta par rapport à la consigne pour désactiver le Déhumidificateur.</p>
         </div>
         
@@ -46,14 +46,14 @@
 
         <div class="card">
             <h3>1️⃣​ délai Mini ON (s)</h3>
-            <input type="number" id="DelayMinOn" min="5" max="1800" step="1" placeholder="s">
-            <p>Durée minimale pendant laquelle le Déhumidificateur reste activé (5 à 1800 s).</p>
+            <input type="number" id="DelayMinOn" step="1" placeholder="s" disabled>
+            <p>Durée minimale pendant laquelle le Déhumidificateur reste activé (<span class="relay-delay-limits">--</span> s).</p>
         </div>
 
         <div class="card">
             <h3>🅾️ délai Mini OFF (s)</h3>
-            <input type="number" id="DelayMinOff" min="5" max="1800" step="1" placeholder="s">
-            <p>Durée minimale avant que le Déhumidificateur puisse se rallumer (5 à 1800 s).</p>
+            <input type="number" id="DelayMinOff" step="1" placeholder="s" disabled>
+            <p>Durée minimale avant que le Déhumidificateur puisse se rallumer (<span class="relay-delay-limits">--</span> s).</p>
         </div>
       
     </div>
@@ -71,12 +71,14 @@
 
 
 
+<script src="/ConfigurationLimits.js"></script>
 <script>
 
 
 let UserChanged = false;
 
 let ConsigneHum = 0;
+let CurrentLimits = null;
 
 
 const HysHighInput = document.getElementById("HysHigh");
@@ -119,7 +121,24 @@ DelayMinOffInput.addEventListener("input", () => {
 
 
 function UpdateStatus() {
-    fetch("/GlobalStatus").then(r => r.json()).then(d => {
+    fetch("/GlobalStatus").then(r => {
+    if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
+    return r.json();
+    }).then(d => {
+
+    CurrentLimits = d.Limits || null;
+    const hysteresisLimits = CurrentLimits && CurrentLimits.Hysteresis && CurrentLimits.Hysteresis.Dehum;
+    const relayDelayLimits = CurrentLimits && CurrentLimits.RelayDelaySeconds;
+    applyNumericLimits(HysHighInput, hysteresisLimits);
+    applyNumericLimits(HysLowInput, hysteresisLimits);
+    const delayOnLimitsApplied = applyNumericLimits(DelayMinOnInput, relayDelayLimits);
+    const delayOffLimitsApplied = applyNumericLimits(DelayMinOffInput, relayDelayLimits);
+    const delayLimitsApplied = delayOnLimitsApplied && delayOffLimitsApplied;
+    document.querySelectorAll(".relay-delay-limits").forEach(element => {
+        element.textContent = delayLimitsApplied
+            ? formatNumericLimits(relayDelayLimits)
+            : "--";
+    });
     
     ConsigneHum = parseFloat(d.Consigne.SetHum);
     
@@ -129,6 +148,8 @@ function UpdateStatus() {
     DelayMinOffInput.value = d.HardwareDehum.DelayMinOff;
 
     UpdateDetailSeuil();
+    }).catch(error => {
+        console.error("Erreur de lecture des paramètres de déshumidification :", error);
     });
 }
 
@@ -152,12 +173,17 @@ function savemodification() {
     const HysLow = Number(HysLowInput.value);
     const DelayMinOn = Number(DelayMinOnInput.value);
     const DelayMinOff = Number(DelayMinOffInput.value);
+    const hysteresisLimits = CurrentLimits && CurrentLimits.Hysteresis && CurrentLimits.Hysteresis.Dehum;
+    const relayDelayLimits = CurrentLimits && CurrentLimits.RelayDelaySeconds;
 
     if (HysHighInput.value.trim() === "" || HysLowInput.value.trim() === "" ||
         ![HysHigh, HysLow, DelayMinOn, DelayMinOff].every(Number.isFinite) ||
         !Number.isInteger(DelayMinOn) || !Number.isInteger(DelayMinOff) ||
-        DelayMinOn < 5 || DelayMinOn > 1800 || DelayMinOff < 5 || DelayMinOff > 1800) {
-        alert("Valeurs invalides : hystérésis requise et délais compris entre 5 et 1800 secondes.");
+        !isWithinNumericLimits(HysHigh, hysteresisLimits) ||
+        !isWithinNumericLimits(HysLow, hysteresisLimits) ||
+        !isWithinNumericLimits(DelayMinOn, relayDelayLimits) ||
+        !isWithinNumericLimits(DelayMinOff, relayDelayLimits)) {
+        alert("Valeurs invalides ou limites de configuration indisponibles.");
         return;
     }
 
@@ -166,7 +192,7 @@ function savemodification() {
     const ValL = ConsigneHum + HysLow;
 
     // VALIDATION
-    if (ValH < ValL) {
+    if (ValH <= ValL) {
         alert(
             "❌ Plage d’hystérésis invalide !\n\n" +
             "Le seuil HAUT doit être strictement supérieur au seuil BAS.\n\n" +

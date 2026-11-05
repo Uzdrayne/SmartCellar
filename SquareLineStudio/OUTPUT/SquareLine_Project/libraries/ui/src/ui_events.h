@@ -10,7 +10,20 @@
 extern "C" {
 #endif
 
-void ScreenGlobal_Loaded(lv_event_t * e);
+void ScreenTempGestUp(lv_event_t * e);
+void ScreenTempGestDown(lv_event_t * e);
+void TempArcSetTempValueChanged(lv_event_t * e);
+void TempArcSetTempReleased(lv_event_t * e);
+void TempArcSetTempPressLost(lv_event_t * e);
+void TempButtonOptionClicked(lv_event_t * e);
+void TempSwitchLockClicked(lv_event_t * e);
+void ScreenHumGestUp(lv_event_t * e);
+void ScreenHumGestDown(lv_event_t * e);
+void HumArcSetHumValueChanged(lv_event_t * e);
+void HumArcSetHumReleased(lv_event_t * e);
+void HumArcSetHumPressLost(lv_event_t * e);
+void HumButtonOptionClicked(lv_event_t * e);
+void HumSwitchLockClicked(lv_event_t * e);
 void ScreenWifi_Loaded(lv_event_t * e);
 void SwitchAPEnable(lv_event_t * e);
 

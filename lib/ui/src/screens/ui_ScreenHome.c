@@ -30,9 +30,6 @@ void ui_event_ScreenHome(lv_event_t * e)
         lv_indev_wait_release(lv_indev_get_act());
         _ui_screen_change(&ui_ScreenTemp, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenTemp_screen_init);
     }
-    if(event_code == LV_EVENT_SCREEN_LOADED) {
-        ScreenGlobal_Loaded(e);
-    }
 }
 
 // build funtions
@@ -125,15 +122,15 @@ void ui_ScreenHome_screen_init(void)
     lv_obj_set_x(ui_HomeLabelDateTime, 1);
     lv_obj_set_y(ui_HomeLabelDateTime, -65);
     lv_obj_set_align(ui_HomeLabelDateTime, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HomeLabelDateTime, "13/01/2026 09:01");
+    lv_label_set_text(ui_HomeLabelDateTime, "dd/mm/yyy hh:mm");
 
     ui_HomeLabelCurrentTemp = lv_label_create(ui_ScreenHome);
     lv_obj_set_width(ui_HomeLabelCurrentTemp, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_HomeLabelCurrentTemp, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_HomeLabelCurrentTemp, -3);
-    lv_obj_set_y(ui_HomeLabelCurrentTemp, -30);
+    lv_obj_set_y(ui_HomeLabelCurrentTemp, -31);
     lv_obj_set_align(ui_HomeLabelCurrentTemp, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HomeLabelCurrentTemp, "12.5");
+    lv_label_set_text(ui_HomeLabelCurrentTemp, "00.0");
     lv_obj_set_style_text_color(ui_HomeLabelCurrentTemp, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_HomeLabelCurrentTemp, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_HomeLabelCurrentTemp, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -141,7 +138,7 @@ void ui_ScreenHome_screen_init(void)
     ui_HomeLabelTempUnit = lv_label_create(ui_ScreenHome);
     lv_obj_set_width(ui_HomeLabelTempUnit, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_HomeLabelTempUnit, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_HomeLabelTempUnit, 46);
+    lv_obj_set_x(ui_HomeLabelTempUnit, 56);
     lv_obj_set_y(ui_HomeLabelTempUnit, -41);
     lv_obj_set_align(ui_HomeLabelTempUnit, LV_ALIGN_CENTER);
     lv_label_set_text(ui_HomeLabelTempUnit, "°C");
@@ -155,7 +152,7 @@ void ui_ScreenHome_screen_init(void)
     lv_obj_set_x(ui_HomeLabelCurrentHum, -3);
     lv_obj_set_y(ui_HomeLabelCurrentHum, 17);
     lv_obj_set_align(ui_HomeLabelCurrentHum, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HomeLabelCurrentHum, "86");
+    lv_label_set_text(ui_HomeLabelCurrentHum, "00");
     lv_obj_set_style_text_color(ui_HomeLabelCurrentHum, lv_color_hex(0x09ADB9), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_HomeLabelCurrentHum, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_HomeLabelCurrentHum, &lv_font_montserrat_44, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -177,7 +174,7 @@ void ui_ScreenHome_screen_init(void)
     lv_obj_set_x(ui_HomeLabelConsignes, 3);
     lv_obj_set_y(ui_HomeLabelConsignes, 56);
     lv_obj_set_align(ui_HomeLabelConsignes, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_HomeLabelConsignes, "Cible 11.8°C / 68%");
+    lv_label_set_text(ui_HomeLabelConsignes, "Cible 00.0°C / 0%");
     lv_obj_set_style_text_color(ui_HomeLabelConsignes, lv_color_hex(0x6E6E6E), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_HomeLabelConsignes, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 

@@ -17,26 +17,26 @@ bool isValidRelayDelay(unsigned int seconds) {
     return seconds >= MinRelayDelaySeconds && seconds <= MaxRelayDelaySeconds;
 }
 
+bool isWithinRange(float value, float minimum, float maximum) {
+    return isfinite(value) && value >= minimum && value <= maximum;
+}
+
 bool isValidTemperatureHysteresis(const StrctDataController& data) {
-    return isfinite(data.ColdHysHigh) && isfinite(data.ColdHysLow) &&
-        isfinite(data.HeatHysHigh) && isfinite(data.HeatHysLow) &&
-        data.ColdHysLow >= 0.0f &&
-        data.ColdHysHigh <= MaxTemperatureHysteresisC &&
+    return isWithinRange(data.ColdHysHigh, MinColdHysteresisC, MaxColdHysteresisC) &&
+        isWithinRange(data.ColdHysLow, MinColdHysteresisC, MaxColdHysteresisC) &&
+        isWithinRange(data.HeatHysHigh, MinHeatHysteresisC, MaxHeatHysteresisC) &&
+        isWithinRange(data.HeatHysLow, MinHeatHysteresisC, MaxHeatHysteresisC) &&
         data.ColdHysHigh > data.ColdHysLow &&
-        data.HeatHysHigh <= 0.0f &&
-        data.HeatHysLow >= -MaxTemperatureHysteresisC &&
         data.HeatHysHigh > data.HeatHysLow &&
         data.ColdHysLow > data.HeatHysHigh;
 }
 
 bool isValidHumidityHysteresis(const StrctDataController& data) {
-    return isfinite(data.DehumHysHigh) && isfinite(data.DehumHysLow) &&
-        isfinite(data.HumHysHigh) && isfinite(data.HumHysLow) &&
-        data.DehumHysLow >= 0.0f &&
-        data.DehumHysHigh <= MaxHumidityHysteresisPercent &&
+    return isWithinRange(data.DehumHysHigh, MinDehumHysteresisPercent, MaxDehumHysteresisPercent) &&
+        isWithinRange(data.DehumHysLow, MinDehumHysteresisPercent, MaxDehumHysteresisPercent) &&
+        isWithinRange(data.HumHysHigh, MinHumHysteresisPercent, MaxHumHysteresisPercent) &&
+        isWithinRange(data.HumHysLow, MinHumHysteresisPercent, MaxHumHysteresisPercent) &&
         data.DehumHysHigh > data.DehumHysLow &&
-        data.HumHysHigh <= 0.0f &&
-        data.HumHysLow >= -MaxHumidityHysteresisPercent &&
         data.HumHysHigh > data.HumHysLow &&
         data.DehumHysLow > data.HumHysHigh;
 }
@@ -88,23 +88,19 @@ bool ParseBoolean(const String& text, bool& value) {
 }
 
 bool IsValidTemperatureSetpoint(float value) {
-    return isfinite(value) &&
-        value >= MinTemperatureSetpointC &&
-        value <= MaxTemperatureSetpointC;
+    return isWithinRange(value, MinTemperatureSetpointC, MaxTemperatureSetpointC);
 }
 
 bool IsValidHumiditySetpoint(float value) {
-    return isfinite(value) &&
-        value >= MinHumiditySetpointPercent &&
-        value <= MaxHumiditySetpointPercent;
+    return isWithinRange(value, MinHumiditySetpointPercent, MaxHumiditySetpointPercent);
 }
 
 bool IsValidTemperatureOffset(float value) {
-    return isfinite(value) && fabsf(value) <= MaxTemperatureOffsetC;
+    return isWithinRange(value, MinTemperatureOffsetC, MaxTemperatureOffsetC);
 }
 
 bool IsValidHumidityOffset(float value) {
-    return isfinite(value) && fabsf(value) <= MaxHumidityOffsetPercent;
+    return isWithinRange(value, MinHumidityOffsetPercent, MaxHumidityOffsetPercent);
 }
 
 bool IsValidSetpoints(float temperature, float humidity) {

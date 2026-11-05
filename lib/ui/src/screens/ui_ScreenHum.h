@@ -15,7 +15,8 @@ extern void ui_ScreenHum_screen_init(void);
 extern void ui_ScreenHum_screen_destroy(void);
 extern void ui_event_ScreenHum(lv_event_t * e);
 extern lv_obj_t * ui_ScreenHum;
-extern lv_obj_t * ui_ArcSetHum;
+extern void ui_event_HumArcSetHum(lv_event_t * e);
+extern lv_obj_t * ui_HumArcSetHum;
 extern lv_obj_t * ui_HumLabelConsigneTxt;
 extern lv_obj_t * ui_HumLabelSetHum;
 extern lv_obj_t * ui_HumLabelSetHumUnit;
@@ -24,7 +25,9 @@ extern lv_obj_t * ui_HumLabelCurrentHum;
 extern lv_obj_t * ui_HumLabelCurrentHumUnit;
 extern lv_obj_t * ui_HumSwitchHumState;
 extern lv_obj_t * ui_HumSwitchDehumState;
-extern lv_obj_t * ui_HumSwitchOption;
+extern void ui_event_HumButtonOption(lv_event_t * e);
+extern lv_obj_t * ui_HumButtonOption;
+extern void ui_event_HumSwitchLock(lv_event_t * e);
 extern lv_obj_t * ui_HumSwitchLock;
 // CUSTOM VARIABLES
 

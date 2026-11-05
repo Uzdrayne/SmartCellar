@@ -6,6 +6,16 @@
 #include "../ui.h"
 
 lv_obj_t * ui_ScreenFan = NULL;
+lv_obj_t * ui_FanLabelActivate = NULL;
+lv_obj_t * ui_FanSwitchActive = NULL;
+lv_obj_t * ui_FanLabelOnTimeTxt = NULL;
+lv_obj_t * ui_FanLabelOnTime = NULL;
+lv_obj_t * ui_FanSwitchOnPlus = NULL;
+lv_obj_t * ui_FanSwitchOnMinus = NULL;
+lv_obj_t * ui_FanLabelOffTimeTxt = NULL;
+lv_obj_t * ui_FanLabelOffTime = NULL;
+lv_obj_t * ui_FanSwitchOffMinus = NULL;
+lv_obj_t * ui_FanSwitchOffPlus = NULL;
 lv_obj_t * ui_FanSwitchFanState = NULL;
 lv_obj_t * ui_FanSwitchLock = NULL;
 // event funtions
@@ -32,13 +42,152 @@ void ui_ScreenFan_screen_init(void)
     lv_obj_set_style_bg_color(ui_ScreenFan, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_ScreenFan, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_FanLabelActivate = lv_label_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanLabelActivate, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_FanLabelActivate, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_FanLabelActivate, 0);
+    lv_obj_set_y(ui_FanLabelActivate, -93);
+    lv_obj_set_align(ui_FanLabelActivate, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_FanLabelActivate, "Ventilation");
+    lv_obj_set_style_text_color(ui_FanLabelActivate, lv_color_hex(0x3DDC84), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_FanLabelActivate, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_FanSwitchActive = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchActive, 50);
+    lv_obj_set_height(ui_FanSwitchActive, 25);
+    lv_obj_set_x(ui_FanSwitchActive, 0);
+    lv_obj_set_y(ui_FanSwitchActive, -67);
+    lv_obj_set_align(ui_FanSwitchActive, LV_ALIGN_CENTER);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchActive, lv_color_hex(0x3DDC84), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchActive, 255, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    ui_FanLabelOnTimeTxt = lv_label_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanLabelOnTimeTxt, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_FanLabelOnTimeTxt, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_FanLabelOnTimeTxt, -63);
+    lv_obj_set_y(ui_FanLabelOnTimeTxt, -28);
+    lv_obj_set_align(ui_FanLabelOnTimeTxt, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_FanLabelOnTimeTxt, "Marche (min)");
+
+    ui_FanLabelOnTime = lv_label_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanLabelOnTime, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_FanLabelOnTime, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_FanLabelOnTime, 32);
+    lv_obj_set_y(ui_FanLabelOnTime, -24);
+    lv_obj_set_align(ui_FanLabelOnTime, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_FanLabelOnTime, "5");
+
+    ui_FanSwitchOnPlus = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchOnPlus, 24);
+    lv_obj_set_height(ui_FanSwitchOnPlus, 24);
+    lv_obj_set_x(ui_FanSwitchOnPlus, 57);
+    lv_obj_set_y(ui_FanSwitchOnPlus, -25);
+    lv_obj_set_align(ui_FanSwitchOnPlus, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_FanSwitchOnPlus,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_FanSwitchOnPlus, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnPlus, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOnPlus, &ui_img_plus_24_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOnPlus, &ui_img_plus_24_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOnPlus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnPlus, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchOnPlus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnPlus, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOnPlus, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnPlus, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+
+    ui_FanSwitchOnMinus = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchOnMinus, 24);
+    lv_obj_set_height(ui_FanSwitchOnMinus, 24);
+    lv_obj_set_x(ui_FanSwitchOnMinus, 7);
+    lv_obj_set_y(ui_FanSwitchOnMinus, -26);
+    lv_obj_set_align(ui_FanSwitchOnMinus, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_FanSwitchOnMinus,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_FanSwitchOnMinus, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnMinus, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOnMinus, &ui_img_moins_24_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOnMinus, &ui_img_moins_24_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOnMinus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnMinus, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchOnMinus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnMinus, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOnMinus, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOnMinus, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+
+    ui_FanLabelOffTimeTxt = lv_label_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanLabelOffTimeTxt, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_FanLabelOffTimeTxt, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_FanLabelOffTimeTxt, -61);
+    lv_obj_set_y(ui_FanLabelOffTimeTxt, 12);
+    lv_obj_set_align(ui_FanLabelOffTimeTxt, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_FanLabelOffTimeTxt, "Pause (min)");
+
+    ui_FanLabelOffTime = lv_label_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanLabelOffTime, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_FanLabelOffTime, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_FanLabelOffTime, 31);
+    lv_obj_set_y(ui_FanLabelOffTime, 18);
+    lv_obj_set_align(ui_FanLabelOffTime, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_FanLabelOffTime, "60");
+
+    ui_FanSwitchOffMinus = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchOffMinus, 24);
+    lv_obj_set_height(ui_FanSwitchOffMinus, 24);
+    lv_obj_set_x(ui_FanSwitchOffMinus, 6);
+    lv_obj_set_y(ui_FanSwitchOffMinus, 16);
+    lv_obj_set_align(ui_FanSwitchOffMinus, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_FanSwitchOffMinus,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_FanSwitchOffMinus, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffMinus, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOffMinus, &ui_img_moins_24_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOffMinus, &ui_img_moins_24_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOffMinus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffMinus, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchOffMinus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffMinus, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOffMinus, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffMinus, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+
+    ui_FanSwitchOffPlus = lv_switch_create(ui_ScreenFan);
+    lv_obj_set_width(ui_FanSwitchOffPlus, 24);
+    lv_obj_set_height(ui_FanSwitchOffPlus, 24);
+    lv_obj_set_x(ui_FanSwitchOffPlus, 55);
+    lv_obj_set_y(ui_FanSwitchOffPlus, 18);
+    lv_obj_set_align(ui_FanSwitchOffPlus, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_FanSwitchOffPlus,
+                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
+                      LV_OBJ_FLAG_SNAPPABLE);     /// Flags
+    lv_obj_set_style_bg_color(ui_FanSwitchOffPlus, lv_color_hex(0x3DB5FB), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffPlus, 20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOffPlus, &ui_img_plus_24_off_png, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_img_src(ui_FanSwitchOffPlus, &ui_img_plus_24_on_png, LV_PART_MAIN | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOffPlus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffPlus, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_FanSwitchOffPlus, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffPlus, 0, LV_PART_INDICATOR | LV_STATE_CHECKED);
+
+    lv_obj_set_style_bg_color(ui_FanSwitchOffPlus, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_FanSwitchOffPlus, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
+
     ui_FanSwitchFanState = lv_switch_create(ui_ScreenFan);
     lv_obj_set_width(ui_FanSwitchFanState, 24);
     lv_obj_set_height(ui_FanSwitchFanState, 24);
     lv_obj_set_x(ui_FanSwitchFanState, 0);
     lv_obj_set_y(ui_FanSwitchFanState, 95);
     lv_obj_set_align(ui_FanSwitchFanState, LV_ALIGN_CENTER);
-    lv_obj_add_state(ui_FanSwitchFanState, LV_STATE_CHECKED);       /// States
     lv_obj_clear_flag(ui_FanSwitchFanState,
                       LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE |
                       LV_OBJ_FLAG_SNAPPABLE);     /// Flags
@@ -84,6 +233,16 @@ void ui_ScreenFan_screen_destroy(void)
 
     // NULL screen variables
     ui_ScreenFan = NULL;
+    ui_FanLabelActivate = NULL;
+    ui_FanSwitchActive = NULL;
+    ui_FanLabelOnTimeTxt = NULL;
+    ui_FanLabelOnTime = NULL;
+    ui_FanSwitchOnPlus = NULL;
+    ui_FanSwitchOnMinus = NULL;
+    ui_FanLabelOffTimeTxt = NULL;
+    ui_FanLabelOffTime = NULL;
+    ui_FanSwitchOffMinus = NULL;
+    ui_FanSwitchOffPlus = NULL;
     ui_FanSwitchFanState = NULL;
     ui_FanSwitchLock = NULL;
 

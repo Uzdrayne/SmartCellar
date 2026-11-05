@@ -30,13 +30,13 @@
 
   <div class="card">
     <label for="FanOnMinutes"><strong>Durée de fonctionnement (minutes)</strong></label>
-    <input type="number" id="FanOnMinutes" min="1" max="1440" step="1" required>
+    <input type="number" id="FanOnMinutes" step="1" required disabled>
     <p>Durée pendant laquelle le ventilateur reste allumé.</p>
   </div>
 
   <div class="card">
     <label for="FanOffMinutes"><strong>Durée d'arrêt (minutes)</strong></label>
-    <input type="number" id="FanOffMinutes" min="1" max="1440" step="1" required>
+    <input type="number" id="FanOffMinutes" step="1" required disabled>
     <p>Durée d'arrêt avant le prochain cycle.</p>
   </div>
 
@@ -50,8 +50,10 @@
   <button class="btn btn-grey" onclick="window.history.back()">⬅ Retour</button>
 </div>
 
+<script src="/ConfigurationLimits.js"></script>
 <script>
 let userChanged = false;
+let fanDurationLimits = null;
 
 const FanEnabledInput = document.getElementById("FanEnabled");
 const FanOnMinutesInput = document.getElementById("FanOnMinutes");
@@ -85,6 +87,10 @@ async function updateStatus() {
       throw new Error("État de ventilation absent de GlobalStatus");
     }
 
+    fanDurationLimits = data.Limits && data.Limits.FanDurationMinutes;
+    applyNumericLimits(FanOnMinutesInput, fanDurationLimits);
+    applyNumericLimits(FanOffMinutesInput, fanDurationLimits);
+
     if (!userChanged) {
       FanEnabledInput.checked = data.Fan.Enabled;
       FanOnMinutesInput.value = data.Fan.OnMinutes;
@@ -106,9 +112,12 @@ async function updateStatus() {
 async function saveFanSettings() {
   const onMinutes = FanOnMinutesInput.valueAsNumber;
   const offMinutes = FanOffMinutesInput.valueAsNumber;
-  if (!Number.isInteger(onMinutes) || onMinutes < 1 || onMinutes > 1440 ||
-      !Number.isInteger(offMinutes) || offMinutes < 1 || offMinutes > 1440) {
-    alert("Les durées doivent être des nombres entiers compris entre 1 et 1440 minutes.");
+  if (!Number.isInteger(onMinutes) || !isWithinNumericLimits(onMinutes, fanDurationLimits) ||
+      !Number.isInteger(offMinutes) || !isWithinNumericLimits(offMinutes, fanDurationLimits)) {
+    const durationRange = fanDurationLimits
+      ? formatNumericLimits(fanDurationLimits)
+      : "indisponibles";
+    alert(`Les durées doivent être des nombres entiers compris entre ${durationRange} minutes.`);
     return;
   }
 

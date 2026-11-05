@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 
-constexpr float SafetyAlarmThresholdMinC = 0.0f;
-constexpr float SafetyAlarmThresholdMaxC = 40.0f;
+#include "Controller/ConfigurationLimits.h"
+
 constexpr float SafetyAlarmThresholdDefaultC = 25.0f;
 constexpr unsigned long SafetyAlarmTriggerDelaySeconds = 300;
 constexpr unsigned long SafetyAlarmRecoveryDelaySeconds = 30;

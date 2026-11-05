@@ -43,6 +43,8 @@ GPIO20/21 sont aussi les broches UART0 par défaut de l'ESP32-C3. Le projet conf
 
 Les pages web du contrôleur sont embarquées et accessibles depuis le réseau local ou le point d'accès `SmartCellar`. Elles permettent de régler les consignes, les hystérésis, le Wi-Fi et MQTT. La page capteur indique le DHT22 du compagnon et permet de régler ses offsets.
 
+Les plages numériques configurables sont centralisées dans `src/Controller/ConfigurationLimits.h` et publiées dans l'objet `Limits` du JSON `GET /GlobalStatus`, également diffusé par le WebSocket `/ws`. Il contient `Setpoints`, `SensorOffset`, `Hysteresis`, `RelayDelaySeconds`, `FanDurationMinutes`, `MqttPort` et `AlarmThresholdC`; chaque plage est décrite par `Min` et `Max`. Les écrans Web et les clients externes peuvent ainsi lire les mêmes bornes que celles utilisées par la validation du firmware.
+
 Le tableau de bord web affiche les états calculés par le C3 et, lorsqu'ils sont transmis, les niveaux GPIO rapportés par l'Arduino. MQTT/Home Assistant reste optionnel et se configure depuis l'interface web.
 
 ## Compilation

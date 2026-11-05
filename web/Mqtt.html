@@ -26,7 +26,7 @@
 
     <p>
     <label>Port :</label><br>
-        <input type="number" id="MqttPort" min="1" max="65535">
+        <input type="number" id="MqttPort" disabled>
     </p>
 
     <p>
@@ -76,6 +76,7 @@
   <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
 </div>
 
+<script src="/ConfigurationLimits.js"></script>
 <script>
 const MqttEnable   = document.getElementById("MqttEnable");
 const MqttServer   = document.getElementById("MqttServer");
@@ -90,6 +91,7 @@ const SaveBtn      = document.getElementById("SaveBtn");
 const CancelBtn    = document.getElementById("CancelBtn");
 
 let UserChanged = false;
+let mqttPortLimits = null;
 
 // Détecter les changements
 [MqttEnable, MqttServer, MqttPort, MqttUser, MqttPassword, ClearMqttPassword, MqttName].forEach(el => {
@@ -99,7 +101,13 @@ let UserChanged = false;
 
 // Charger les valeurs depuis le ESP32
 function LoadMQTT() {
-  fetch("/GlobalStatus").then(r => r.json()).then(d => {
+  fetch("/GlobalStatus").then(r => {
+    if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
+    return r.json();
+  }).then(d => {
+    mqttPortLimits = d.Limits && d.Limits.MqttPort;
+    applyNumericLimits(MqttPort, mqttPortLimits);
+
     MqttEnable.checked   = d.Mqtt.MqttEnable;
     MqttServer.value     = d.Mqtt.mqtt_server;
     MqttPort.value       = d.Mqtt.mqtt_server_port;
@@ -114,6 +122,8 @@ function LoadMQTT() {
     UserChanged = false;
     SaveBtn.disabled = !UserChanged;
     CancelBtn.disabled = !UserChanged;
+  }).catch(error => {
+    console.error("Erreur de lecture de la configuration MQTT :", error);
   });
 }
 
@@ -121,6 +131,15 @@ function LoadMQTT() {
 
 // Sauvegarder les paramètres MQTT
 function SaveMQTT() {
+  const mqttPort = MqttPort.valueAsNumber;
+  if (!Number.isInteger(mqttPort) || !isWithinNumericLimits(mqttPort, mqttPortLimits)) {
+    const portRange = mqttPortLimits
+      ? formatNumericLimits(mqttPortLimits)
+      : "indisponibles";
+    alert(`Le port MQTT doit être un entier compris entre ${portRange}.`);
+    return;
+  }
+
   // Préparation des données
   const params = new URLSearchParams();
   params.append("MqttEnable", MqttEnable.checked ? 1 : 0);

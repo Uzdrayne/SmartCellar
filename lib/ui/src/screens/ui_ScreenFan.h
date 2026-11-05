@@ -15,6 +15,16 @@ extern void ui_ScreenFan_screen_init(void);
 extern void ui_ScreenFan_screen_destroy(void);
 extern void ui_event_ScreenFan(lv_event_t * e);
 extern lv_obj_t * ui_ScreenFan;
+extern lv_obj_t * ui_FanLabelActivate;
+extern lv_obj_t * ui_FanSwitchActive;
+extern lv_obj_t * ui_FanLabelOnTimeTxt;
+extern lv_obj_t * ui_FanLabelOnTime;
+extern lv_obj_t * ui_FanSwitchOnPlus;
+extern lv_obj_t * ui_FanSwitchOnMinus;
+extern lv_obj_t * ui_FanLabelOffTimeTxt;
+extern lv_obj_t * ui_FanLabelOffTime;
+extern lv_obj_t * ui_FanSwitchOffMinus;
+extern lv_obj_t * ui_FanSwitchOffPlus;
 extern lv_obj_t * ui_FanSwitchFanState;
 extern lv_obj_t * ui_FanSwitchLock;
 // CUSTOM VARIABLES

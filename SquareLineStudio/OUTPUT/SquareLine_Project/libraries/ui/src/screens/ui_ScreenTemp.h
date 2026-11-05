@@ -15,6 +15,7 @@ extern void ui_ScreenTemp_screen_init(void);
 extern void ui_ScreenTemp_screen_destroy(void);
 extern void ui_event_ScreenTemp(lv_event_t * e);
 extern lv_obj_t * ui_ScreenTemp;
+extern void ui_event_TempArcSetTemp(lv_event_t * e);
 extern lv_obj_t * ui_TempArcSetTemp;
 extern lv_obj_t * ui_TempLabelConsigneTxt;
 extern lv_obj_t * ui_TempLabelSetTemp;
@@ -24,7 +25,9 @@ extern lv_obj_t * ui_TempLabelCurrentTemp;
 extern lv_obj_t * ui_TempLabelCurrentTempUnit;
 extern lv_obj_t * ui_TempSwitchHeatState;
 extern lv_obj_t * ui_TempSwitchColdState;
-extern lv_obj_t * ui_TempSwitchOption;
+extern void ui_event_TempButtonOption(lv_event_t * e);
+extern lv_obj_t * ui_TempButtonOption;
+extern void ui_event_TempSwitchLock(lv_event_t * e);
 extern lv_obj_t * ui_TempSwitchLock;
 // CUSTOM VARIABLES
 

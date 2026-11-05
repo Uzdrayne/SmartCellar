@@ -12,6 +12,7 @@
 #include <DNSServer.h>
 
 #include "ControllerData.h"
+#include "Controller/ConfigurationLimits.h"
 #include "Controller/ControllerValidation.h"
 
 
@@ -102,7 +103,7 @@ StrctDataMqtt DataMqtt;
 
 //String JSON_GLOBAL_STATUS;
 
-char JSON_GLOBAL_STATUS[2000];
+char JSON_GLOBAL_STATUS[2700];
 
 
 void InitMutex(){
@@ -152,7 +153,18 @@ void LoadMqtt(StrctDataMqtt &data){
     data.MqttEnable = prefs.getBool("MqttEnable", false);
 
     data.MqttServer = prefs.getString("MqttServer","");// MQTT Server URL
-    data.MqttPort = prefs.getUInt("MqttPort",1883);// MQTT Server port
+    const unsigned int storedMqttPort =
+        prefs.getUInt("MqttPort", DefaultMqttPort);
+    if (storedMqttPort < MinMqttPort || storedMqttPort > MaxMqttPort) {
+        Serial.printf("[NVS] Port MQTT invalide (%u), réinitialisé à %u.\n",
+                      storedMqttPort, DefaultMqttPort);
+        data.MqttPort = static_cast<uint16_t>(DefaultMqttPort);
+        if (prefs.putUInt("MqttPort", DefaultMqttPort) != sizeof(DefaultMqttPort)) {
+            Serial.println("[NVS] Échec d'enregistrement du port MQTT par défaut.");
+        }
+    } else {
+        data.MqttPort = static_cast<uint16_t>(storedMqttPort);
+    }
 
     data.MqttUser = prefs.getString("MqttUser","");// MQTT Username
     data.MqttPassword = prefs.getString("MqttPass","");//MQTT Password
@@ -339,6 +351,53 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     JsonObject Consigne = doc["Consigne"].to<JsonObject>();
     Consigne["SetTemp"] = LocalData.SetTemp;
     Consigne["SetHum"]  = LocalData.SetHum;  
+
+    JsonObject Limits = doc["Limits"].to<JsonObject>();
+    JsonObject Setpoints = Limits["Setpoints"].to<JsonObject>();
+    JsonObject TemperatureSetpoint = Setpoints["Temperature"].to<JsonObject>();
+    TemperatureSetpoint["Min"] = MinTemperatureSetpointC;
+    TemperatureSetpoint["Max"] = MaxTemperatureSetpointC;
+    JsonObject HumiditySetpoint = Setpoints["Humidity"].to<JsonObject>();
+    HumiditySetpoint["Min"] = MinHumiditySetpointPercent;
+    HumiditySetpoint["Max"] = MaxHumiditySetpointPercent;
+
+    JsonObject SensorOffset = Limits["SensorOffset"].to<JsonObject>();
+    JsonObject TemperatureOffset = SensorOffset["Temperature"].to<JsonObject>();
+    TemperatureOffset["Min"] = MinTemperatureOffsetC;
+    TemperatureOffset["Max"] = MaxTemperatureOffsetC;
+    JsonObject HumidityOffset = SensorOffset["Humidity"].to<JsonObject>();
+    HumidityOffset["Min"] = MinHumidityOffsetPercent;
+    HumidityOffset["Max"] = MaxHumidityOffsetPercent;
+
+    JsonObject Hysteresis = Limits["Hysteresis"].to<JsonObject>();
+    JsonObject ColdHysteresis = Hysteresis["Cold"].to<JsonObject>();
+    ColdHysteresis["Min"] = MinColdHysteresisC;
+    ColdHysteresis["Max"] = MaxColdHysteresisC;
+    JsonObject HeatHysteresis = Hysteresis["Heat"].to<JsonObject>();
+    HeatHysteresis["Min"] = MinHeatHysteresisC;
+    HeatHysteresis["Max"] = MaxHeatHysteresisC;
+    JsonObject DehumHysteresis = Hysteresis["Dehum"].to<JsonObject>();
+    DehumHysteresis["Min"] = MinDehumHysteresisPercent;
+    DehumHysteresis["Max"] = MaxDehumHysteresisPercent;
+    JsonObject HumHysteresis = Hysteresis["Hum"].to<JsonObject>();
+    HumHysteresis["Min"] = MinHumHysteresisPercent;
+    HumHysteresis["Max"] = MaxHumHysteresisPercent;
+
+    JsonObject RelayDelay = Limits["RelayDelaySeconds"].to<JsonObject>();
+    RelayDelay["Min"] = MinRelayDelaySeconds;
+    RelayDelay["Max"] = MaxRelayDelaySeconds;
+
+    JsonObject FanDuration = Limits["FanDurationMinutes"].to<JsonObject>();
+    FanDuration["Min"] = FanDurationMinMinutes;
+    FanDuration["Max"] = FanDurationMaxMinutes;
+
+    JsonObject MqttPort = Limits["MqttPort"].to<JsonObject>();
+    MqttPort["Min"] = MinMqttPort;
+    MqttPort["Max"] = MaxMqttPort;
+
+    JsonObject AlarmThreshold = Limits["AlarmThresholdC"].to<JsonObject>();
+    AlarmThreshold["Min"] = SafetyAlarmThresholdMinC;
+    AlarmThreshold["Max"] = SafetyAlarmThresholdMaxC;
 
     JsonObject SensorConfig = doc["SensorConfig"].to<JsonObject>();
     SensorConfig["TempOffsetEnabled"] = LocalData.TempOffsetEnabled;

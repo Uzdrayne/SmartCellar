@@ -15,19 +15,18 @@ extern void ui_ScreenWifi_screen_init(void);
 extern void ui_ScreenWifi_screen_destroy(void);
 extern void ui_event_ScreenWifi(lv_event_t * e);
 extern lv_obj_t * ui_ScreenWifi;
-extern lv_obj_t * ui_SpinnerWifiAP;
-extern void ui_event_SwitchApEnabled(lv_event_t * e);
-extern lv_obj_t * ui_SwitchApEnabled;
-extern lv_obj_t * ui_Label1;
-extern lv_obj_t * ui_LabelWifiApEnabled;
-extern lv_obj_t * ui_Label2;
-extern lv_obj_t * ui_LabelAPSsid;
-extern lv_obj_t * ui_Label3;
-extern lv_obj_t * ui_LabelAPPass;
-extern lv_obj_t * ui_Label4;
-extern lv_obj_t * ui_LabelIP;
-extern lv_obj_t * ui_Label5;
-extern lv_obj_t * ui_LabelLocalIP;
+extern lv_obj_t * ui_WifiSpinner;
+extern lv_obj_t * ui_WifiLabelEnableAp;
+extern void ui_event_WifiSwitchApEnabled(lv_event_t * e);
+extern lv_obj_t * ui_WifiSwitchApEnabled;
+extern lv_obj_t * ui_WifiLabelApSsidTxt;
+extern lv_obj_t * ui_WifiLabelApSsid;
+extern lv_obj_t * ui_WifiLabelApPassTxt;
+extern lv_obj_t * ui_WifiLabelApPass;
+extern lv_obj_t * ui_WifiLabelApIPTxt;
+extern lv_obj_t * ui_WifiLabelApIP;
+extern lv_obj_t * ui_WifiLabelLocalIpTxt;
+extern lv_obj_t * ui_WifiLabelLocalIp;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

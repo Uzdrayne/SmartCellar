@@ -38,7 +38,7 @@ void ui_init(void)
     ui_ScreenHum_screen_init();
     ui_ScreenFan_screen_init();
     ui_ScreenWifi_screen_init();
-    ui_WarningSpinner_screen_init();
+    ui_ScreenWarning_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
     lv_disp_load_scr(ui_ScreenHome);
 }
@@ -50,5 +50,5 @@ void ui_destroy(void)
     ui_ScreenHum_screen_destroy();
     ui_ScreenFan_screen_destroy();
     ui_ScreenWifi_screen_destroy();
-    ui_WarningSpinner_screen_destroy();
+    ui_ScreenWarning_screen_destroy();
 }

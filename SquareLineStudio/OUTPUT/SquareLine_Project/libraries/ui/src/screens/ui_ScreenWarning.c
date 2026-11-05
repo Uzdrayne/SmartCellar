@@ -5,40 +5,49 @@
 
 #include "../ui.h"
 
+lv_obj_t * ui_ScreenWarning = NULL;
 lv_obj_t * ui_WarningSpinner = NULL;
-lv_obj_t * ui_SpinnerWarning = NULL;
 lv_obj_t * ui_WarningSwitchIcon = NULL;
 lv_obj_t * ui_WarningLabelAlerte = NULL;
 lv_obj_t * ui_WarningLabelReason = NULL;
 lv_obj_t * ui_WarningLabellastMeasure = NULL;
 lv_obj_t * ui_WarningLabelLastTime = NULL;
 // event funtions
+void ui_event_ScreenWarning(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
+        lv_indev_wait_release(lv_indev_get_act());
+        _ui_screen_change(&ui_ScreenWifi, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_ScreenWifi_screen_init);
+    }
+}
 
 // build funtions
 
-void ui_WarningSpinner_screen_init(void)
+void ui_ScreenWarning_screen_init(void)
 {
-    ui_WarningSpinner = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_WarningSpinner, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_WarningSpinner, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_WarningSpinner, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_ScreenWarning = lv_obj_create(NULL);
+    lv_obj_clear_flag(ui_ScreenWarning, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_ScreenWarning, lv_color_hex(0x11151C), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_ScreenWarning, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_SpinnerWarning = lv_spinner_create(ui_WarningSpinner, 1000, 90);
-    lv_obj_set_width(ui_SpinnerWarning, 240);
-    lv_obj_set_height(ui_SpinnerWarning, 240);
-    lv_obj_set_align(ui_SpinnerWarning, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_SpinnerWarning, LV_OBJ_FLAG_CLICKABLE);      /// Flags
-    lv_obj_set_style_border_width(ui_SpinnerWarning, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_width(ui_SpinnerWarning, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_outline_pad(ui_SpinnerWarning, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_blend_mode(ui_SpinnerWarning, LV_BLEND_MODE_NORMAL, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_width(ui_SpinnerWarning, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_WarningSpinner = lv_spinner_create(ui_ScreenWarning, 1000, 90);
+    lv_obj_set_width(ui_WarningSpinner, 240);
+    lv_obj_set_height(ui_WarningSpinner, 240);
+    lv_obj_set_align(ui_WarningSpinner, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_WarningSpinner, LV_OBJ_FLAG_CLICKABLE);      /// Flags
+    lv_obj_set_style_border_width(ui_WarningSpinner, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_width(ui_WarningSpinner, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_pad(ui_WarningSpinner, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_blend_mode(ui_WarningSpinner, LV_BLEND_MODE_NORMAL, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_width(ui_WarningSpinner, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_arc_color(ui_SpinnerWarning, lv_color_hex(0xFED300), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_opa(ui_SpinnerWarning, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_width(ui_SpinnerWarning, 1, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_WarningSpinner, lv_color_hex(0xFED300), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_opa(ui_WarningSpinner, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_width(ui_WarningSpinner, 1, LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
-    ui_WarningSwitchIcon = lv_switch_create(ui_WarningSpinner);
+    ui_WarningSwitchIcon = lv_switch_create(ui_ScreenWarning);
     lv_obj_set_width(ui_WarningSwitchIcon, 60);
     lv_obj_set_height(ui_WarningSwitchIcon, 60);
     lv_obj_set_x(ui_WarningSwitchIcon, 0);
@@ -60,7 +69,7 @@ void ui_WarningSpinner_screen_init(void)
     lv_obj_set_style_bg_color(ui_WarningSwitchIcon, lv_color_hex(0xFFFFFF), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_WarningSwitchIcon, 0, LV_PART_KNOB | LV_STATE_DEFAULT);
 
-    ui_WarningLabelAlerte = lv_label_create(ui_WarningSpinner);
+    ui_WarningLabelAlerte = lv_label_create(ui_ScreenWarning);
     lv_obj_set_width(ui_WarningLabelAlerte, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WarningLabelAlerte, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WarningLabelAlerte, 0);
@@ -69,7 +78,7 @@ void ui_WarningSpinner_screen_init(void)
     lv_label_set_text(ui_WarningLabelAlerte, "Alerte !");
     lv_obj_set_style_text_font(ui_WarningLabelAlerte, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_WarningLabelReason = lv_label_create(ui_WarningSpinner);
+    ui_WarningLabelReason = lv_label_create(ui_ScreenWarning);
     lv_obj_set_width(ui_WarningLabelReason, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WarningLabelReason, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WarningLabelReason, 0);
@@ -80,7 +89,7 @@ void ui_WarningSpinner_screen_init(void)
     lv_obj_set_style_text_opa(ui_WarningLabelReason, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_WarningLabelReason, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_WarningLabellastMeasure = lv_label_create(ui_WarningSpinner);
+    ui_WarningLabellastMeasure = lv_label_create(ui_ScreenWarning);
     lv_obj_set_width(ui_WarningLabellastMeasure, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WarningLabellastMeasure, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WarningLabellastMeasure, 0);
@@ -88,7 +97,7 @@ void ui_WarningSpinner_screen_init(void)
     lv_obj_set_align(ui_WarningLabellastMeasure, LV_ALIGN_CENTER);
     lv_label_set_text(ui_WarningLabellastMeasure, "derniere mesure 12.4°C");
 
-    ui_WarningLabelLastTime = lv_label_create(ui_WarningSpinner);
+    ui_WarningLabelLastTime = lv_label_create(ui_ScreenWarning);
     lv_obj_set_width(ui_WarningLabelLastTime, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WarningLabelLastTime, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WarningLabelLastTime, 0);
@@ -99,15 +108,17 @@ void ui_WarningSpinner_screen_init(void)
     lv_obj_set_style_text_opa(ui_WarningLabelLastTime, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_WarningLabelLastTime, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    lv_obj_add_event_cb(ui_ScreenWarning, ui_event_ScreenWarning, LV_EVENT_ALL, NULL);
+
 }
 
-void ui_WarningSpinner_screen_destroy(void)
+void ui_ScreenWarning_screen_destroy(void)
 {
-    if(ui_WarningSpinner) lv_obj_del(ui_WarningSpinner);
+    if(ui_ScreenWarning) lv_obj_del(ui_ScreenWarning);
 
     // NULL screen variables
+    ui_ScreenWarning = NULL;
     ui_WarningSpinner = NULL;
-    ui_SpinnerWarning = NULL;
     ui_WarningSwitchIcon = NULL;
     ui_WarningLabelAlerte = NULL;
     ui_WarningLabelReason = NULL;

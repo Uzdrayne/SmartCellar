@@ -28,8 +28,6 @@ extern DNSServer dns;
 extern WiFiClient wifiClient;
 extern HomeAssistantMQTT mqtt;
 
-constexpr unsigned int FanDurationMinMinutes = 1;
-constexpr unsigned int FanDurationMaxMinutes = 1440;
 constexpr unsigned int FanDefaultOnMinutes = 5;
 constexpr unsigned int FanDefaultOffMinutes = 55;
 
@@ -135,7 +133,7 @@ extern StrctDataMqtt DataMqtt;
 
 //extern String JSON_GLOBAL_STATUS ;
 
-extern char JSON_GLOBAL_STATUS[2000];
+extern char JSON_GLOBAL_STATUS[2700];
 void Get_Json_GlobalStatus(char* buffer, size_t maxSize);
 
 

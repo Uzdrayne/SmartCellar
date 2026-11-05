@@ -102,6 +102,10 @@ class NanoProtocolContractTests(unittest.TestCase):
         self.assertIn('strcmp(reason, "outputs_timeout")', self.c3_source)
         self.assertIn('strcmp(type, "control_restored")', self.c3_source)
 
+    def test_c3_emits_periodic_uart_test_marker(self):
+        self.assertIn("TestMessagePeriodMs = 1000", self.c3_source)
+        self.assertIn('Serial1.println("TEST")', self.c3_source)
+
 
 if __name__ == "__main__":
     unittest.main()

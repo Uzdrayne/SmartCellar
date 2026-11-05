@@ -32,7 +32,7 @@ extern "C" {
 #include "screens/ui_ScreenHum.h"
 #include "screens/ui_ScreenFan.h"
 #include "screens/ui_ScreenWifi.h"
-#include "screens/ui_WarningSpinner.h"
+#include "screens/ui_ScreenWarning.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -58,10 +58,14 @@ LV_IMG_DECLARE(ui_img_deshumidificateur_off_png);    // assets/deshumidificateur
 LV_IMG_DECLARE(ui_img_deshumidificateur_on_png);    // assets/deshumidificateur_on.png
 LV_IMG_DECLARE(ui_img_ventilation_off_png);    // assets/ventilation_off.png
 LV_IMG_DECLARE(ui_img_ventilation_on_png);    // assets/ventilation_on.png
-LV_IMG_DECLARE(ui_img_roue_dentee_off_png);    // assets/roue_dentee_off.png
 LV_IMG_DECLARE(ui_img_roue_dentee_on_png);    // assets/roue_dentee_on.png
+LV_IMG_DECLARE(ui_img_roue_dentee_off_png);    // assets/roue_dentee_off.png
 LV_IMG_DECLARE(ui_img_cadenas_ferme_on_png);    // assets/cadenas_ferme_on.png
 LV_IMG_DECLARE(ui_img_cadenas_ouvert_on_png);    // assets/cadenas_ouvert_on.png
+LV_IMG_DECLARE(ui_img_plus_24_off_png);    // assets/plus_24_off.png
+LV_IMG_DECLARE(ui_img_plus_24_on_png);    // assets/plus_24_on.png
+LV_IMG_DECLARE(ui_img_moins_24_off_png);    // assets/moins_24_off.png
+LV_IMG_DECLARE(ui_img_moins_24_on_png);    // assets/moins_24_on.png
 LV_IMG_DECLARE(ui_img_warning_60_png);    // assets/warning_60.png
 LV_IMG_DECLARE(ui_img_warning_60_plein_png);    // assets/warning_60_plein.png
 

@@ -1,4 +1,5 @@
 let UserCalibChanged = false;
+let CurrentLimits = null;
 
 const TempCheckbox = document.getElementById("EnableTempOffset");
 const TempInput    = document.getElementById("TempOffset");
@@ -30,7 +31,13 @@ HumInput.addEventListener("input", () => {
 
 
 function UpdateStatus() {
-    fetch("/GlobalStatus").then(r => r.json()).then(d => {
+    fetch("/GlobalStatus").then(r => {
+        if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
+        return r.json();
+    }).then(d => {
+        CurrentLimits = d.Limits && d.Limits.SensorOffset;
+        applyNumericLimits(TempInput, CurrentLimits && CurrentLimits.Temperature);
+        applyNumericLimits(HumInput, CurrentLimits && CurrentLimits.Humidity);
 
         // Si l'utilisateur n'est pas en train de modifier, mettre à jour les champs
         if (!UserCalibChanged) {
@@ -54,6 +61,8 @@ function UpdateStatus() {
         //griser les boutons quand pas utile
         document.getElementById("CancelBtnCalib").disabled = !UserCalibChanged; 
         document.getElementById("SaveBtnCalib").disabled = !UserCalibChanged; 
+    }).catch(error => {
+        console.error("Erreur de lecture de la configuration du capteur :", error);
     });
 }
 
@@ -66,11 +75,19 @@ function SaveCapteurCalibration() {
   const HumEnabled  = document.getElementById("EnableHumOffset").checked ? 1 : 0;
   const HumInputValue = document.getElementById("HumOffset").value;
   const HumValue = Number(HumInputValue);
+  const temperatureLimits = CurrentLimits && CurrentLimits.Temperature;
+  const humidityLimits = CurrentLimits && CurrentLimits.Humidity;
 
   if (TempInputValue.trim() === "" || HumInputValue.trim() === "" ||
-      !Number.isFinite(TempValue) || Math.abs(TempValue) > 5 ||
-      !Number.isFinite(HumValue) || Math.abs(HumValue) > 10) {
-    alert("Calibration invalide : offset température ±5 °C, humidité ±10 points.");
+      !isWithinNumericLimits(TempValue, temperatureLimits) ||
+      !isWithinNumericLimits(HumValue, humidityLimits)) {
+    const temperatureRange = temperatureLimits
+      ? formatNumericLimits(temperatureLimits)
+      : "indisponible";
+    const humidityRange = humidityLimits
+      ? formatNumericLimits(humidityLimits)
+      : "indisponible";
+    alert(`Calibration invalide : température ${temperatureRange} °C, humidité ${humidityRange} points.`);
     return;
   }
 
