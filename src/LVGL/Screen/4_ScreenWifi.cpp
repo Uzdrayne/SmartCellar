@@ -31,12 +31,18 @@ ui_WifiLabelBtnReset : label pour afficher le texte du bouton de réinitialisati
 
 namespace {
 
-lv_obj_t* adminResetButton = nullptr;
-lv_obj_t* adminResetButtonLabel = nullptr;
-bool adminResetConfirmationPending = false;
-bool adminResetFailed = false;
-unsigned long adminResetRequestedAt = 0;
-constexpr unsigned long AdminResetConfirmationWindowMs = 5000;
+enum class AdminResetFeedback {
+    None,
+    Succeeded,
+    Failed
+};
+
+lv_obj_t* adminResetMessageBox = nullptr;
+AdminResetFeedback adminResetFeedback = AdminResetFeedback::None;
+bool wifiScreenLocked = true;
+bool accessPointEnabled = false;
+
+const char* AdminResetMessageBoxButtons[] = {"Oui", "Non", ""};
 
 void setLabelTextIfChanged(lv_obj_t* label, const char* text) {
     if (label == nullptr) {
@@ -57,61 +63,62 @@ void formatIpAddress(char* text, size_t textSize, const IPAddress& ip) {
              static_cast<unsigned int>(ip[3]));
 }
 
-void handleAdminResetButton(lv_event_t* event) {
-    if (lv_event_get_code(event) != LV_EVENT_CLICKED ||
-        !HasWebAdminCredential()) {
-        return;
-    }
-
-    const unsigned long now = millis();
-    if (!adminResetConfirmationPending ||
-        now - adminResetRequestedAt > AdminResetConfirmationWindowMs) {
-        adminResetConfirmationPending = true;
-        adminResetFailed = false;
-        adminResetRequestedAt = now;
-        lv_label_set_text(adminResetButtonLabel, "Confirmer le reset");
-        return;
-    }
-
-    adminResetConfirmationPending = false;
-    if (ResetWebAdminCredential()) {
-        Serial.println("[WebSecurity] Compte Web réinitialisé depuis l'écran");
-        lv_label_set_text(adminResetButtonLabel, "Accès à reconfigurer via AP");
+void UpdateWifiControlStates() {
+    if (wifiScreenLocked) {
+        lv_obj_add_state(ui_WifiSwitchApEnabled, LV_STATE_DISABLED);
     } else {
-        adminResetFailed = true;
-        lv_label_set_text(adminResetButtonLabel, "Échec de réinitialisation");
+        lv_obj_clear_state(ui_WifiSwitchApEnabled, LV_STATE_DISABLED);
+    }
+
+    if (wifiScreenLocked || !HasWebAdminCredential()) {
+        lv_obj_add_state(ui_WifiButtonReset, LV_STATE_DISABLED);
+    } else {
+        lv_obj_clear_state(ui_WifiButtonReset, LV_STATE_DISABLED);
     }
 }
 
-void createAdminResetButton() {
-    if (adminResetButton != nullptr) {
+void ApplyWifiLock() {
+    wifiScreenLocked =
+        !lv_obj_has_state(ui_WifiSwitchLock, LV_STATE_CHECKED);
+    UpdateWifiControlStates();
+}
+
+void handleAdminResetConfirmation(lv_event_t* event) {
+    if (lv_event_get_code(event) != LV_EVENT_VALUE_CHANGED ||
+        adminResetMessageBox == nullptr) {
         return;
     }
 
-    adminResetButton = lv_btn_create(ui_ScreenWifi);
-    lv_obj_set_size(adminResetButton, 200, 36);
-    lv_obj_align(adminResetButton, LV_ALIGN_BOTTOM_MID, 0, -4);
-    adminResetButtonLabel = lv_label_create(adminResetButton);
-    lv_label_set_text(adminResetButtonLabel, "Reinitialiser acces Web");
-    lv_obj_center(adminResetButtonLabel);
-    lv_obj_add_event_cb(
-        adminResetButton, handleAdminResetButton, LV_EVENT_CLICKED, nullptr);
-    if (!HasWebAdminCredential()) {
-        lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
-        lv_label_set_text(adminResetButtonLabel, "Acces a configurer via AP");
+    const uint16_t activeButton =
+        lv_msgbox_get_active_btn(adminResetMessageBox);
+    if (activeButton == 0) {
+        if (ResetWebAdminCredential()) {
+            adminResetFeedback = AdminResetFeedback::Succeeded;
+            Serial.println("[WebSecurity] Compte Web réinitialisé depuis l'écran");
+        } else {
+            adminResetFeedback = AdminResetFeedback::Failed;
+            Serial.println("[WebSecurity] Echec de réinitialisation du compte Web");
+        }
     }
+
+    lv_msgbox_close_async(adminResetMessageBox);
+    adminResetMessageBox = nullptr;
+    Refresh_ScreenWifi();
 }
 
 }
 
 
 void Initialize_ScreenWifi() {
-
-    createAdminResetButton();
+    lv_obj_clear_state(ui_WifiSwitchLock, LV_STATE_CHECKED);
+    adminResetFeedback = AdminResetFeedback::None;
+    ApplyWifiLock();
     Refresh_ScreenWifi();
 }
 
 void Refresh_ScreenWifi() {
+    accessPointEnabled = (WiFi.getMode() & WIFI_AP) != 0;
+    set_switch_state(ui_WifiSwitchApEnabled, accessPointEnabled);
 
     char apIpText[16];
     char localIpText[16];
@@ -135,32 +142,44 @@ void Refresh_ScreenWifi() {
 
     lv_label_set_text(ui_WifiLabelLocalIp, localIpText); //Local IP
 
-
-    if (adminResetButton != nullptr) {
-        if (adminResetConfirmationPending &&
-            millis() - adminResetRequestedAt > AdminResetConfirmationWindowMs) {
-            adminResetConfirmationPending = false;
-        }
-
-        if (HasWebAdminCredential()) {
-            lv_obj_clear_state(adminResetButton, LV_STATE_DISABLED);
-            if (!adminResetConfirmationPending && !adminResetFailed) {
-                lv_label_set_text(adminResetButtonLabel, "Reinitialiser acces Web");
-            }
-        } else {
-            lv_obj_add_state(adminResetButton, LV_STATE_DISABLED);
-            if (!adminResetFailed) {
-                lv_label_set_text(adminResetButtonLabel, "Acces a configurer via AP");
-            }
-        }
+    if (adminResetFeedback == AdminResetFeedback::Succeeded &&
+        HasWebAdminCredential()) {
+        adminResetFeedback = AdminResetFeedback::None;
     }
+
+    if (adminResetFeedback == AdminResetFeedback::None) {
+        setLabelTextIfChanged(
+            ui_WifiLabelBtnReset,
+            HasWebAdminCredential()
+                ? "Reset Mdp"
+                : "Config via AP"
+        );
+    } else if (adminResetFeedback == AdminResetFeedback::Succeeded) {
+        setLabelTextIfChanged(
+            ui_WifiLabelBtnReset,
+            "Config via AP"
+        );
+    } else {
+        setLabelTextIfChanged(
+            ui_WifiLabelBtnReset,
+            "Reset Erreur"
+        );
+    }
+
+    UpdateWifiControlStates();
 }
 
 
 // Gestion du clic sur le switch d'activation du mode AP
 void WifiSwitchAPEnableClicked(lv_event_t * e){
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) {
+        return;
+    }
+    if (wifiScreenLocked) {
+        set_switch_state(ui_WifiSwitchApEnabled, accessPointEnabled);
+        return;
+    }
 
-    
     if(lv_obj_has_state(ui_WifiSwitchApEnabled, LV_STATE_CHECKED)) {
         Serial.println("démarrage du mode AP");
         StartAccessPoint();
@@ -183,14 +202,48 @@ void WifiSwitchAPEnableClicked(lv_event_t * e){
 
 // Gestion du clic sur le bouton de réinitialisation de l'admin
 void WifiButtonResetClicked(lv_event_t * e){
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED ||
+        wifiScreenLocked || !HasWebAdminCredential() ||
+        adminResetMessageBox != nullptr) {
+        return;
+    }
+
+    adminResetFeedback = AdminResetFeedback::None;
+    adminResetMessageBox = lv_msgbox_create(
+        nullptr,
+        "Confirmation",
+        "Reinitialiser l'acces administrateur Web ?",
+        AdminResetMessageBoxButtons,
+        false
+    );
+    if (adminResetMessageBox == nullptr) {
+        Serial.println("[WebSecurity] Impossible de creer la confirmation de reset");
+        return;
+    }
+
+    lv_obj_add_event_cb(
+        adminResetMessageBox,
+        handleAdminResetConfirmation,
+        LV_EVENT_VALUE_CHANGED,
+        nullptr
+    );
+    lv_obj_center(adminResetMessageBox);
 }
 
 // Gestion du clic sur le switch de verrouillage du screen Wifi
 void WifiSwitchLockClicked(lv_event_t * e){
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) {
+        return;
+    }
+    ApplyWifiLock();
+    Refresh_ScreenWifi();
 }
 
 // Gestion du geste vers le bas sur le screen Fan
 void ScreenWifiGestDown(lv_event_t *e) {
+    if (!wifiScreenLocked) {
+        return;
+    }
 
     _ui_screen_change(
         &ui_ScreenFan,
