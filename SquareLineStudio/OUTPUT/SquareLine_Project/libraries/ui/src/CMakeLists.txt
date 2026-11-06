@@ -27,10 +27,14 @@ SET(SOURCES screens/ui_ScreenHome.c
     images/ui_img_roue_dentee_off_png.c
     images/ui_img_cadenas_ferme_on_png.c
     images/ui_img_cadenas_ouvert_on_png.c
-    images/ui_img_plus_24_off_png.c
-    images/ui_img_plus_24_on_png.c
-    images/ui_img_moins_24_off_png.c
-    images/ui_img_moins_24_on_png.c
+    images/ui_img_moins_on_png.c
+    images/ui_img_moins_off_png.c
+    images/ui_img_plus_on_png.c
+    images/ui_img_plus_off_png.c
+    images/ui_img_valider_on_png.c
+    images/ui_img_valider_off_png.c
+    images/ui_img_annuler_on_png.c
+    images/ui_img_annuler_off_png.c
     images/ui_img_warning_60_png.c
     images/ui_img_warning_60_plein_png.c)
 

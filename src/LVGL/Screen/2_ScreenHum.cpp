@@ -36,11 +36,14 @@ namespace {
         if (humScreenLocked) {
             humSetpointBeingEdited = false;
             lv_obj_add_state(ui_HumArcSetHum, LV_STATE_DISABLED);
-            lv_obj_add_state(ui_HumButtonOption, LV_STATE_DISABLED);
         } else {
             lv_obj_clear_state(ui_HumArcSetHum, LV_STATE_DISABLED);
-            lv_obj_clear_state(ui_HumButtonOption, LV_STATE_DISABLED);
         }
+
+        lv_imgbtn_set_state(
+            ui_HumButtonOption,
+            humScreenLocked ? LV_IMGBTN_STATE_DISABLED : LV_IMGBTN_STATE_RELEASED
+        );
     }
 
 }
@@ -67,9 +70,6 @@ void Initialize_ScreenHum() {
         static_cast<int16_t>(data.SetHum + 0.5f)
     );
 
-    char text[16];
-    snprintf(text, sizeof(text), "%02d", static_cast<int16_t>(data.SetHum + 0.5f));
-    lv_label_set_text(ui_HumLabelSetHum, text);
 
     ApplyHumidityLock();
     Refresh_ScreenHum();

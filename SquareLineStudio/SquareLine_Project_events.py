@@ -98,3 +98,63 @@ def HumArcSetHumPressLost(event_struct):
 def HumSwitchLockClicked(event_struct):
     return
 
+
+def FanButtonOnMinusClicked(event_struct):
+    return
+
+
+def FanButtonOnPlusClicked(event_struct):
+    return
+
+
+def FanButtonOffMinusClicked(event_struct):
+    return
+
+
+def FanButtonOffPlusClicked(event_struct):
+    return
+
+
+def FanButtonApplyChangesClicked(event_struct):
+    return
+
+
+def FanButtonDiscardChangesClicked(event_struct):
+    return
+
+
+def ScreenHomeGestUp(event_struct):
+    return
+
+
+def ScreenFanGestUp(event_struct):
+    return
+
+
+def ScreenFanGestDown(event_struct):
+    return
+
+
+def FanSwitchLockClicked(event_struct):
+    return
+
+
+def FanSwitchActiveClicked(event_struct):
+    return
+
+
+def WifiSwitchAPEnableClicked(event_struct):
+    return
+
+
+def ScreenWifiGestUp(event_struct):
+    return
+
+
+def ScreenWifiGestDown(event_struct):
+    return
+
+
+def WifiButtonResetClicked(event_struct):
+    return
+

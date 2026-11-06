@@ -79,7 +79,9 @@ void Initialize_LvglUI() {
     Initialize_ScreenTemp();
 
     Initialize_ScreenHum();
-    //Initialize_ScreenFan();
+    Initialize_ScreenFan();
+    Initialize_ScreenWifi();
+    Initialize_ScreenWarning();
 }
 
 //timer pour refresh le temps du chrono
@@ -100,9 +102,13 @@ void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){
         else if (lv_scr_act() == ui_ScreenFan) {
             Refresh_ScreenFan();
         }
-        //else if (lv_scr_act() == ui_ScreenWarning) {
-        //    Refresh_ScreenWarning();
-        //}
+        else if (lv_scr_act() == ui_ScreenWifi) {
+            Refresh_ScreenWifi();
+        }        
+        else if (lv_scr_act() == ui_ScreenWarning) {
+            Refresh_ScreenWarning();
+        }
+
 
     }
     

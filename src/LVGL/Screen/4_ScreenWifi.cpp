@@ -22,7 +22,11 @@ ui_WifiLabelApIP : label pour afficher l'adresse IP du point d'accès WiFi
 
 ui_WifiLabelLocalIp : label pour afficher l'adresse IP locale du WiFi
 
+ui_WifiSwitchLock : switch pour verrouiller le screen Wifi
 
+
+ui_WifiButtonReset : bouton pour réinitialiser l'accès admin Web
+ui_WifiLabelBtnReset : label pour afficher le texte du bouton de réinitialisation de l'admin Web
 */
 
 namespace {
@@ -100,25 +104,11 @@ void createAdminResetButton() {
 
 }
 
-bool StateSwitchAP = false;
 
-void ScreenWifi_Loaded(lv_event_t * e){
-
-    StateSwitchAP = (WiFi.getMode() & WIFI_AP) != 0;
-
-   // set_switch_state(ui_SwitchApEnabled,StateSwitchAP);
-
-    const lv_color_t statusColor = StateSwitchAP
-        ? lv_color_make(0, 200, 0)
-        : lv_color_make(200, 0, 0);
-   // lv_obj_set_style_text_color(ui_LabelWifiApEnabled, statusColor, 0);
-   // lv_label_set_text(ui_LabelWifiApEnabled, StateSwitchAP ? "ON" : "OFF");
-
-
+void Initialize_ScreenWifi() {
 
     createAdminResetButton();
     Refresh_ScreenWifi();
-
 }
 
 void Refresh_ScreenWifi() {
@@ -167,8 +157,8 @@ void Refresh_ScreenWifi() {
 }
 
 
-
-void SwitchAPEnable(lv_event_t * e){
+// Gestion du clic sur le switch d'activation du mode AP
+void WifiSwitchAPEnableClicked(lv_event_t * e){
 
     
     if(lv_obj_has_state(ui_WifiSwitchApEnabled, LV_STATE_CHECKED)) {
@@ -180,9 +170,6 @@ void SwitchAPEnable(lv_event_t * e){
         Serial.println(ip);
 
 
-        //lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(0, 200, 0),0);
-        //lv_label_set_text(ui_LabelWifiApEnabled,"ON");
-
     } else {
         Serial.println("désactivation du mode AP");
         ConnectToWifi();
@@ -191,4 +178,31 @@ void SwitchAPEnable(lv_event_t * e){
     }
 
     Refresh_ScreenWifi();
+}
+
+
+// Gestion du clic sur le bouton de réinitialisation de l'admin
+void WifiButtonResetClicked(lv_event_t * e){
+}
+
+// Gestion du clic sur le switch de verrouillage du screen Wifi
+void WifiSwitchLockClicked(lv_event_t * e){
+}
+
+// Gestion du geste vers le bas sur le screen Fan
+void ScreenWifiGestDown(lv_event_t *e) {
+
+    _ui_screen_change(
+        &ui_ScreenFan,
+        LV_SCR_LOAD_ANIM_FADE_ON,
+        300,
+        0,
+        &ui_ScreenFan_screen_init
+    );        
+}
+
+
+// Gestion du geste vers le haut sur le screen Wifi
+void ScreenWifiGestUp(lv_event_t *e) {
+    return;
 }

@@ -54,24 +54,11 @@ namespace {
 
 }
 
-//a supprimer après syncUI
-void ScreenGlobal_Loaded(lv_event_t * e) {
-  //Refresh_ScreenHome();
-}
 
 void Initialize_ScreenHome() {
-//  if (ui_ScreenFan == nullptr || ui_SwitchLockFan == nullptr) {
-//       return;
-//   }
-
-  // sensorFaultBanner = CreateSensorFaultBanner(ui_ScreenFan);
-//  lv_obj_remove_event_cb(ui_ScreenFan, ui_event_ScreenFan);
-//  lv_obj_add_event_cb(ui_ScreenFan, OnFanGesture, LV_EVENT_GESTURE, nullptr);
-//  lv_obj_add_event_cb(ui_ScreenFan, OnFanScreenLoaded, LV_EVENT_SCREEN_LOADED, nullptr);
-
-  // lv_obj_clear_state(ui_SwitchLockFan, LV_STATE_CHECKED);
-//  Refresh_ScreenFan();
+  Refresh_ScreenHome();
 }
+
 
 void Refresh_ScreenHome(){
   const StrctDataController localData = GetControllerSnapshot();
@@ -90,9 +77,6 @@ void Refresh_ScreenHome(){
   refreshHomeDateLabel();
 
 
-  //lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0x36F1FA), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-  //lv_obj_set_style_arc_color(ui_SpinnerGlob, lv_color_hex(0xFF0000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-   
   //Actualisation des valeurs du capteur et consigne
   if(sensorReady) {
 
@@ -126,3 +110,17 @@ void Refresh_ScreenHome(){
   set_switch_state(ui_HomeSwitchFanState, localData.FanState);
 
 }
+
+
+
+// Gestion du geste vers le haut sur le screen Home
+void ScreenHomeGestUp(lv_event_t *e) {
+  _ui_screen_change(
+      &ui_ScreenTemp,
+      LV_SCR_LOAD_ANIM_FADE_ON,
+      300,
+      0,
+      &ui_ScreenTemp_screen_init
+  );    
+}
+    
