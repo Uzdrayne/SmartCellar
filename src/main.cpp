@@ -20,6 +20,9 @@ void setup()
   Serial.println("SmartCellar READY!");
 
   InitMutex();
+  if (!InitializeWifiIdentity()) {
+    Serial.println("[WiFi] Le nom générique sera utilisé pour le SSID et mDNS.");
+  }
   InitializeSerialLink();
   if (!InitializeSafetyAlarm()) {
     Serial.println("Configuration d'alerte indisponible; seuil par défaut utilisé en mémoire.");
@@ -27,8 +30,11 @@ void setup()
   if (!InitializeWebSecurity(APPass)) {
     Serial.println("Paramètres de sécurité indisponibles; le point d'accès ne sera pas démarré.");
   }
+
   LoadWifi(DataWifi);
+
   LoadMqtt(DataMqtt);
+  
   LoadCaveControllerData(DataController);
 
   my_TouchScreen_Init();
@@ -41,7 +47,8 @@ void setup()
 }
 
 unsigned long lastJson = 0;
-unsigned long lastWifiScreenRefresh = 0;
+
+
 void loop() {
   unsigned long now = millis();
 
@@ -69,10 +76,7 @@ void loop() {
     dns.processNextRequest();
   }
 
-  if (UiReady && now - lastWifiScreenRefresh >= 500 && lv_scr_act() == ui_ScreenWifi) {
-    lastWifiScreenRefresh = now;
-    Refresh_ScreenWifi();
-  }
+
 
   const bool networkAvailable = WifiSTA_OK || (WiFi.getMode() & WIFI_AP);
   if (networkAvailable && !Get_WifiScanning()) {
@@ -83,7 +87,9 @@ void loop() {
   }
 
   ws.cleanupClients();
+
   lv_timer_handler();
+
   Handle_Screen_Brightness(millis());
 
   delay(1);

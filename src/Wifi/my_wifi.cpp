@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
+#include <esp_mac.h>
 #include <time.h>
 
 #include "Data/ControllerData.h"
@@ -13,6 +14,32 @@
 
 String APSsid = "SmartCellar";
 String APPass;
+
+bool InitializeWifiIdentity() {
+    uint8_t apMac[6];
+    const esp_err_t result = esp_read_mac(apMac, ESP_MAC_WIFI_SOFTAP);
+    if (result != ESP_OK) {
+        Serial.printf("[WiFi] Lecture de la MAC du point d'accès impossible: %s\n",
+                      esp_err_to_name(result));
+        return false;
+    }
+
+    bool macIsZero = true;
+    bool macIsBroadcast = true;
+    for (const uint8_t octet : apMac) {
+        macIsZero = macIsZero && octet == 0;
+        macIsBroadcast = macIsBroadcast && octet == 0xFF;
+    }
+    if (macIsZero || macIsBroadcast) {
+        Serial.println("[WiFi] Adresse MAC du point d'accès invalide");
+        return false;
+    }
+
+    char macSuffix[5];
+    snprintf(macSuffix, sizeof(macSuffix), "%02X%02X", apMac[4], apMac[5]);
+    APSsid = "SmartCellar-" + String(macSuffix);
+    return true;
+}
 
 namespace {
 
@@ -147,16 +174,6 @@ void StartAccessPoint() {
         return;
     }
 
-    String apMac = WiFi.softAPmacAddress();
-    apMac.replace(":", "");
-    apMac.toUpperCase();
-    if (apMac.length() != 12 || apMac == "000000000000") {
-        Serial.printf("[WiFi] Impossible de lire l'adresse MAC AP: %s\n",
-                      apMac.c_str());
-        return;
-    }
-    APSsid = "SmartCellar-" + apMac.substring(8);
-
     if (!WiFi.softAP(APSsid.c_str(), APPass.c_str())) {
         Serial.println("Échec du démarrage du point d'accès Wi-Fi");
     }
@@ -174,7 +191,7 @@ void Gestion_DNS_mDNS() {
         dnsActive = true;
     }
 
-    if (!MDNS.begin("smartcellar")) {
+    if (!MDNS.begin(APSsid.c_str())) {
         Serial.println("Échec du démarrage mDNS");
         return;
     }

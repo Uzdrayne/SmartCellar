@@ -44,5 +44,6 @@ void Refresh_ScreenWifi();
 //Screen Warning
 void Initialize_ScreenWarning();
 void Refresh_ScreenWarning();
+void Handle_ScreenWarningNavigation(unsigned long now);
 
 #endif

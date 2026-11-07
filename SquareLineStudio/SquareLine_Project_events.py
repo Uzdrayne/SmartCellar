@@ -162,3 +162,19 @@ def WifiButtonResetClicked(event_struct):
 def WifiSwitchLockClicked(event_struct):
     return
 
+
+def ScreenWarningGestUpAndDown(event_struct):
+    return
+
+
+def ScreenHomeGestDown(event_struct):
+    return
+
+
+def ScreenWarningGestDown(event_struct):
+    return
+
+
+def ScreenWarningGestUp(event_struct):
+    return
+

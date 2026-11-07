@@ -89,6 +89,7 @@ void CallBackTimer_ScreenRefresh(lv_timer_t * Timer_ScreenRefresh){
 
     
     if(UiReady){
+        Handle_ScreenWarningNavigation(millis());
 
         if (lv_scr_act() == ui_ScreenHome) {
             Refresh_ScreenHome();

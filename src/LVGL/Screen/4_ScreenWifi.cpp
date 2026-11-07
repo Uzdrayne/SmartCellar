@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <ui.h>
 #include <string.h>
+#include "Alarm/AlertManager.h"
 #include "Global/Global.h"
 #include "LVGL/Lvgl_Global.h"
 
@@ -257,5 +258,15 @@ void ScreenWifiGestDown(lv_event_t *e) {
 
 // Gestion du geste vers le haut sur le screen Wifi
 void ScreenWifiGestUp(lv_event_t *e) {
-    return;
+    if (!GetAlertSnapshot(millis()).AnyAlertActive) {
+        return;
+    }
+
+    _ui_screen_change(
+        &ui_ScreenWarning,
+        LV_SCR_LOAD_ANIM_FADE_ON,
+        300,
+        0,
+        &ui_ScreenWarning_screen_init
+    );
 }

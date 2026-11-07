@@ -2,6 +2,7 @@
 #include <lvgl.h>
 #include <time.h>
 #include <ui.h>
+#include "Alarm/AlertManager.h"
 #include "Global/Global.h"
 #include "LVGL/Lvgl_Global.h"
 
@@ -123,4 +124,18 @@ void ScreenHomeGestUp(lv_event_t *e) {
       &ui_ScreenTemp_screen_init
   );    
 }
-    
+
+// Gestion du geste vers le bas sur le screen Home
+void ScreenHomeGestDown(lv_event_t *e) {
+  if (!GetAlertSnapshot(millis()).AnyAlertActive) {
+    return;
+  }
+
+  _ui_screen_change(
+      &ui_ScreenWarning,
+      LV_SCR_LOAD_ANIM_FADE_ON,
+      300,
+      0,
+      &ui_ScreenWarning_screen_init
+  );    
+}

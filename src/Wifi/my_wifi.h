@@ -6,6 +6,7 @@
 extern String APSsid;
 extern String APPass;
 
+bool InitializeWifiIdentity();
 void ConnectToWifi();
 void StartAccessPoint();
 void Gestion_DNS_mDNS();
