@@ -133,7 +133,7 @@ extern StrctDataMqtt DataMqtt;
 
 //extern String JSON_GLOBAL_STATUS ;
 
-extern char JSON_GLOBAL_STATUS[2700];
+extern char JSON_GLOBAL_STATUS[4096];
 void Get_Json_GlobalStatus(char* buffer, size_t maxSize);
 
 

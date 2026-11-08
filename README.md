@@ -45,6 +45,8 @@ Les pages web du contrôleur sont embarquées et accessibles depuis le réseau l
 
 Les plages numériques configurables sont centralisées dans `src/Controller/ConfigurationLimits.h` et publiées dans l'objet `Limits` du JSON `GET /GlobalStatus`, également diffusé par le WebSocket `/ws`. Il contient `Setpoints`, `SensorOffset`, `Hysteresis`, `RelayDelaySeconds`, `FanDurationMinutes`, `MqttPort` et `AlarmThresholdC`; chaque plage est décrite par `Min` et `Max`. Les écrans Web et les clients externes peuvent ainsi lire les mêmes bornes que celles utilisées par la validation du firmware.
 
+Le même JSON expose `Alerts` (alertes actives, motifs, seuil et dernière mesure valide), la fraîcheur des données dans `Sensor`, les informations STA/AP dans `Wifi`, et les métadonnées MQTT. `SchemaVersion` et `UptimeMilliseconds` permettent aux clients de suivre l'évolution du format et l'âge du snapshot. Les mots de passe Wi-Fi et MQTT ne font pas partie du statut.
+
 Le tableau de bord web affiche les états calculés par le C3 et, lorsqu'ils sont transmis, les niveaux GPIO rapportés par l'Arduino. MQTT/Home Assistant reste optionnel et se configure depuis l'interface web.
 
 ## Compilation

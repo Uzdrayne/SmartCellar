@@ -127,7 +127,7 @@ void ScreenHomeGestUp(lv_event_t *e) {
 
 // Gestion du geste vers le bas sur le screen Home
 void ScreenHomeGestDown(lv_event_t *e) {
-  if (!GetAlertSnapshot(millis()).AnyAlertActive) {
+  if (!GetAlertSnapshot().AnyAlertActive) {
     return;
   }
 

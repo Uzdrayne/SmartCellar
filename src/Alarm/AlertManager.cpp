@@ -5,7 +5,32 @@
 #include "Global/Global.h"
 #include "SerialLink/SerialLink.h"
 
-AlertSnapshot GetAlertSnapshot(const unsigned long now) {
+namespace {
+
+bool previousPrimaryAlertActive = false;
+PrimaryAlertReason lastPrimaryAlertReason = PrimaryAlertReason::None;
+unsigned long lastPrimaryAlertRaisedAtMs = 0;
+AlertSnapshot currentAlertSnapshot = {};
+
+PrimaryAlertReason getActivePrimaryAlertReason(const AlertSnapshot& status) {
+    if (status.NanoLinkLost) {
+        return PrimaryAlertReason::NanoLinkLost;
+    }
+    if (status.MeasurementsUnavailable) {
+        return PrimaryAlertReason::MeasurementsUnavailable;
+    }
+    if (status.HighTemperatureActive) {
+        return PrimaryAlertReason::HighTemperature;
+    }
+    if (status.NanoFallback) {
+        return PrimaryAlertReason::NanoFallback;
+    }
+    return PrimaryAlertReason::None;
+}
+
+}
+
+void UpdateAlertManager(const unsigned long now) {
     const SafetyAlarmStatus safetyStatus = GetSafetyAlarmStatus();
     const SerialLinkSnapshot serialStatus = GetSerialLinkSnapshot(now);
     const bool wifiIsSta = Get_WifiIsSTA();
@@ -15,6 +40,8 @@ AlertSnapshot GetAlertSnapshot(const unsigned long now) {
     xSemaphoreGive(DataMutex);
 
     AlertSnapshot status = {};
+    status.NanoTelemetryReceived = serialStatus.hasReceivedTelemetry;
+    status.TelemetryAvailable = serialStatus.measurementAvailable;
     status.NanoLinkLost = serialStatus.measurementUnavailable;
     status.MeasurementsUnavailable =
         safetyStatus.MeasurementsUnavailable && !status.NanoLinkLost;
@@ -34,5 +61,21 @@ AlertSnapshot GetAlertSnapshot(const unsigned long now) {
     status.HasLastMeasurement = safetyStatus.HasLastMeasurement;
     status.LastValidTemperatureC = safetyStatus.LastValidTemperatureC;
     status.LastMeasurementAgeSeconds = safetyStatus.LastMeasurementAgeSeconds;
-    return status;
+
+    if (status.PrimaryAlertActive && !previousPrimaryAlertActive) {
+        const PrimaryAlertReason reason = getActivePrimaryAlertReason(status);
+        if (reason != PrimaryAlertReason::None) {
+            lastPrimaryAlertReason = reason;
+            lastPrimaryAlertRaisedAtMs = now;
+        }
+    }
+    previousPrimaryAlertActive = status.PrimaryAlertActive;
+    status.LastPrimaryAlertReason = lastPrimaryAlertReason;
+    status.LastPrimaryAlertRaisedAtMs = lastPrimaryAlertRaisedAtMs;
+
+    currentAlertSnapshot = status;
+}
+
+AlertSnapshot GetAlertSnapshot() {
+    return currentAlertSnapshot;
 }

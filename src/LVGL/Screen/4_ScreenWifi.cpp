@@ -258,7 +258,7 @@ void ScreenWifiGestDown(lv_event_t *e) {
 
 // Gestion du geste vers le haut sur le screen Wifi
 void ScreenWifiGestUp(lv_event_t *e) {
-    if (!GetAlertSnapshot(millis()).AnyAlertActive) {
+    if (!GetAlertSnapshot().AnyAlertActive) {
         return;
     }
 

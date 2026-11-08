@@ -17,6 +17,8 @@ lv_obj_t * ui_WifiLabelApIPTxt = NULL;
 lv_obj_t * ui_WifiLabelApIP = NULL;
 lv_obj_t * ui_WifiLabelLocalIpTxt = NULL;
 lv_obj_t * ui_WifiLabelLocalIp = NULL;
+lv_obj_t * ui_WifiLabelLocalDnsTxt = NULL;
+lv_obj_t * ui_WifiLabelLocalDns = NULL;
 lv_obj_t * ui_WifiButtonReset = NULL;
 lv_obj_t * ui_WifiLabelBtnReset = NULL;
 lv_obj_t * ui_WifiSwitchLock = NULL;
@@ -113,7 +115,7 @@ void ui_ScreenWifi_screen_init(void)
     lv_obj_set_x(ui_WifiLabelApSsidTxt, -180);
     lv_obj_set_y(ui_WifiLabelApSsidTxt, -40);
     lv_obj_set_align(ui_WifiLabelApSsidTxt, LV_ALIGN_RIGHT_MID);
-    lv_label_set_text(ui_WifiLabelApSsidTxt, "SSID :");
+    lv_label_set_text(ui_WifiLabelApSsidTxt, "Ssid :");
     lv_obj_set_style_text_decor(ui_WifiLabelApSsidTxt, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_WifiLabelApSsidTxt, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
@@ -168,7 +170,7 @@ void ui_ScreenWifi_screen_init(void)
     lv_obj_set_width(ui_WifiLabelLocalIpTxt, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WifiLabelLocalIpTxt, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WifiLabelLocalIpTxt, -61);
-    lv_obj_set_y(ui_WifiLabelLocalIpTxt, 50);
+    lv_obj_set_y(ui_WifiLabelLocalIpTxt, 35);
     lv_obj_set_align(ui_WifiLabelLocalIpTxt, LV_ALIGN_CENTER);
     lv_label_set_text(ui_WifiLabelLocalIpTxt, "local IP :");
     lv_obj_set_style_text_decor(ui_WifiLabelLocalIpTxt, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -178,16 +180,35 @@ void ui_ScreenWifi_screen_init(void)
     lv_obj_set_width(ui_WifiLabelLocalIp, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WifiLabelLocalIp, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_WifiLabelLocalIp, 99);
-    lv_obj_set_y(ui_WifiLabelLocalIp, 50);
+    lv_obj_set_y(ui_WifiLabelLocalIp, 35);
     lv_obj_set_align(ui_WifiLabelLocalIp, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_WifiLabelLocalIp, "192.168.0.xx");
     lv_obj_set_style_text_font(ui_WifiLabelLocalIp, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_WifiLabelLocalDnsTxt = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_WifiLabelLocalDnsTxt, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_WifiLabelLocalDnsTxt, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_WifiLabelLocalDnsTxt, -72);
+    lv_obj_set_y(ui_WifiLabelLocalDnsTxt, 55);
+    lv_obj_set_align(ui_WifiLabelLocalDnsTxt, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_WifiLabelLocalDnsTxt, "DNS :");
+    lv_obj_set_style_text_decor(ui_WifiLabelLocalDnsTxt, LV_TEXT_DECOR_UNDERLINE, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_WifiLabelLocalDnsTxt, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_WifiLabelLocalDns = lv_label_create(ui_ScreenWifi);
+    lv_obj_set_width(ui_WifiLabelLocalDns, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_WifiLabelLocalDns, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_WifiLabelLocalDns, 72);
+    lv_obj_set_y(ui_WifiLabelLocalDns, 55);
+    lv_obj_set_align(ui_WifiLabelLocalDns, LV_ALIGN_LEFT_MID);
+    lv_label_set_text(ui_WifiLabelLocalDns, "http://ApSsid.local");
+    lv_obj_set_style_text_font(ui_WifiLabelLocalDns, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     ui_WifiButtonReset = lv_btn_create(ui_ScreenWifi);
-    lv_obj_set_width(ui_WifiButtonReset, 100);
+    lv_obj_set_width(ui_WifiButtonReset, 118);
     lv_obj_set_height(ui_WifiButtonReset, 25);
     lv_obj_set_x(ui_WifiButtonReset, 0);
-    lv_obj_set_y(ui_WifiButtonReset, 84);
+    lv_obj_set_y(ui_WifiButtonReset, 87);
     lv_obj_set_align(ui_WifiButtonReset, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_WifiButtonReset, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_WifiButtonReset, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -242,6 +263,8 @@ void ui_ScreenWifi_screen_destroy(void)
     ui_WifiLabelApIP = NULL;
     ui_WifiLabelLocalIpTxt = NULL;
     ui_WifiLabelLocalIp = NULL;
+    ui_WifiLabelLocalDnsTxt = NULL;
+    ui_WifiLabelLocalDns = NULL;
     ui_WifiButtonReset = NULL;
     ui_WifiLabelBtnReset = NULL;
     ui_WifiSwitchLock = NULL;

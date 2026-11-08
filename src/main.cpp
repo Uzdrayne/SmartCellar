@@ -8,6 +8,7 @@
 #include "Wifi/my_wifi.h"
 #include "Global/Global.h"
 #include "Controller/CaveController.h"
+#include "Alarm/AlertManager.h"
 #include "Alarm/SafetyAlarm.h"
 #include "SerialLink/SerialLink.h"
 #include "ServerWeb/WebSecurity.h"
@@ -34,7 +35,7 @@ void setup()
   LoadWifi(DataWifi);
 
   LoadMqtt(DataMqtt);
-  
+
   LoadCaveControllerData(DataController);
 
   my_TouchScreen_Init();
@@ -46,51 +47,47 @@ void setup()
   ConnectToWifi();
 }
 
-unsigned long lastJson = 0;
+unsigned long lastPeriodicUpdate  = 0;
 
 
 void loop() {
   unsigned long now = millis();
 
-  if (TryingWifi) {
-    if (WifiSTA_OK) {
-      TryingWifi = false;
-    } else if (now - WifiAttemptStart > 60000) {
-      Serial.println("Timeout WiFi");
-      TryingWifi = false;
-      StartAccessPoint();
-    }
-  }
+
 
   ProcessSerialLink(now);
   
-  UpdateController();
-  UpdateSafetyAlarm(now);
 
-  if ((now - lastJson) >= 250) {
-    lastJson = now;
+  if ((now - lastPeriodicUpdate ) >= 250) {
+
+    UpdateController();
+    UpdateSafetyAlarm(now);
+    UpdateAlertManager(now);
+
+    lastPeriodicUpdate  = now;
     Get_Json_GlobalStatus(JSON_GLOBAL_STATUS, sizeof(JSON_GLOBAL_STATUS));
+
+
+    const bool networkAvailable = WifiSTA_OK || (WiFi.getMode() & WIFI_AP);
+    if (networkAvailable && !Get_WifiScanning()) {
+      SendValueWebSocket();
+      if (WifiSTA_OK && Get_MqttEnable()) {
+        MyMqttLoop();
+      }
+    }
+
+    ws.cleanupClients();
+
+    Handle_Screen_Brightness(now);
+
   }
 
+  
   if (dnsActive) {
     dns.processNextRequest();
   }
 
-
-
-  const bool networkAvailable = WifiSTA_OK || (WiFi.getMode() & WIFI_AP);
-  if (networkAvailable && !Get_WifiScanning()) {
-    SendValueWebSocket();
-    if (WifiSTA_OK && Get_MqttEnable()) {
-      MyMqttLoop();
-    }
-  }
-
-  ws.cleanupClients();
-
   lv_timer_handler();
-
-  Handle_Screen_Brightness(millis());
 
   delay(1);
 }

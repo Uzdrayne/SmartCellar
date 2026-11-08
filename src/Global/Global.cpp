@@ -14,8 +14,6 @@ bool ScreenON = true;
 bool UiReady = false;
 lv_timer_t *Timer_ScreenRefresh = nullptr;
 
-bool TryingWifi = false;
-unsigned long WifiAttemptStart = 0;
 bool WifiSTA_OK = false;
 bool dnsActive = false;
 

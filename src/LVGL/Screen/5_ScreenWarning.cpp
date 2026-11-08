@@ -54,6 +54,22 @@ void appendReasonLine(char* text, const size_t textSize, size_t& lineCount,const
     ++lineCount;
 }
 
+const char* getPrimaryAlertReasonText(const PrimaryAlertReason reason) {
+    switch (reason) {
+        case PrimaryAlertReason::NanoLinkLost:
+            return "Liaison avec le Nano perdue";
+        case PrimaryAlertReason::MeasurementsUnavailable:
+            return "Mesures indisponibles";
+        case PrimaryAlertReason::HighTemperature:
+            return "Temperature trop elevee";
+        case PrimaryAlertReason::NanoFallback:
+            return "Mode secours du Nano";
+        case PrimaryAlertReason::None:
+        default:
+            return nullptr;
+    }
+}
+
 void navigateToWarningScreen() {
     _ui_screen_change(
         &ui_ScreenWarning,
@@ -77,7 +93,7 @@ void Initialize_ScreenWarning() {
 
 void Refresh_ScreenWarning() {
     const unsigned long now = millis();
-    const AlertSnapshot status = GetAlertSnapshot(now);
+    const AlertSnapshot status = GetAlertSnapshot();
 
     setLabelTextIfChanged(
         ui_WarningLabelAlerte,
@@ -110,8 +126,15 @@ void Refresh_ScreenWarning() {
                          "MQTT indisponible");
     }
     if (reasonText[0] == '\0') {
-        snprintf(reasonText, sizeof(reasonText),
-                 status.AnyAlertActive ? "Aucune alerte active" : "Retour a la normale");
+        if (status.AnyAlertActive) {
+            snprintf(reasonText, sizeof(reasonText), "Aucune alerte active");
+        } else if (getPrimaryAlertReasonText(status.LastPrimaryAlertReason) != nullptr) {
+            snprintf(reasonText, sizeof(reasonText),
+                     "Retour a la normale\nDerniere alerte :\n%s",
+                     getPrimaryAlertReasonText(status.LastPrimaryAlertReason));
+        } else {
+            snprintf(reasonText, sizeof(reasonText), "Retour a la normale");
+        }
     }
     setLabelTextIfChanged(ui_WarningLabelReason, reasonText);
 
@@ -148,8 +171,7 @@ void Handle_ScreenWarningNavigation(const unsigned long now) {
     if (ui_ScreenWarning == nullptr) {
         return;
     }
-
-    const AlertSnapshot status = GetAlertSnapshot(now);
+    const AlertSnapshot status = GetAlertSnapshot();
     const bool warningScreenActive = lv_scr_act() == ui_ScreenWarning;
 
     if (status.PrimaryAlertActive && !previousPrimaryAlertActive &&

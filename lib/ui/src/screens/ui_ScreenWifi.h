@@ -27,6 +27,8 @@ extern lv_obj_t * ui_WifiLabelApIPTxt;
 extern lv_obj_t * ui_WifiLabelApIP;
 extern lv_obj_t * ui_WifiLabelLocalIpTxt;
 extern lv_obj_t * ui_WifiLabelLocalIp;
+extern lv_obj_t * ui_WifiLabelLocalDnsTxt;
+extern lv_obj_t * ui_WifiLabelLocalDns;
 extern void ui_event_WifiButtonReset(lv_event_t * e);
 extern lv_obj_t * ui_WifiButtonReset;
 extern lv_obj_t * ui_WifiLabelBtnReset;

@@ -3,7 +3,17 @@
 
 #include <Arduino.h>
 
+enum class PrimaryAlertReason : uint8_t {
+    None,
+    NanoLinkLost,
+    MeasurementsUnavailable,
+    HighTemperature,
+    NanoFallback
+};
+
 struct AlertSnapshot {
+    bool NanoTelemetryReceived;
+    bool TelemetryAvailable;
     bool NanoLinkLost;
     bool MeasurementsUnavailable;
     bool HighTemperatureActive;
@@ -15,8 +25,11 @@ struct AlertSnapshot {
     bool HasLastMeasurement;
     float LastValidTemperatureC;
     unsigned long LastMeasurementAgeSeconds;
+    PrimaryAlertReason LastPrimaryAlertReason;
+    unsigned long LastPrimaryAlertRaisedAtMs;
 };
 
-AlertSnapshot GetAlertSnapshot(unsigned long now);
+void UpdateAlertManager(unsigned long now);
+AlertSnapshot GetAlertSnapshot();
 
 #endif

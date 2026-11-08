@@ -6,8 +6,6 @@
 
 #include "Data/ControllerData.h"
 
-extern bool TryingWifi;
-extern unsigned long WifiAttemptStart;
 extern bool WifiSTA_OK;
 extern bool dnsActive;
 

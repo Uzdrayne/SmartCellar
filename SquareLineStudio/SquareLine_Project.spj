@@ -16768,7 +16768,7 @@
             "disabled": false,
             "nid": 1000626,
             "strtype": "_event/EventHandler",
-            "strval": "GESTURE_DOWN(GESTURE)",
+            "strval": "GESTURE_UP(GESTURE)",
             "childs": [
               {
                 "nid": 1000627,
@@ -16845,7 +16845,7 @@
   },
   "animations": [],
   "selected_theme": "Default",
-  "selected_screen": "GUID73184947-603795S236513",
+  "selected_screen": "GUID18392398-298940S72175307",
   "info": {
     "name": "SquareLine_Project.spj",
     "depth": 2,
@@ -16873,7 +16873,7 @@
     "custom_variable_prefix": "uic",
     "separate_screen_save": false,
     "hierarchy_state_save": false,
-    "backup_cnt": 103,
+    "backup_cnt": 105,
     "autosave_cnt": 0,
     "group_color_cnt": 0,
     "imagebytearrayprefix": "",

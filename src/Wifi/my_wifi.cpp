@@ -85,7 +85,6 @@ void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
             Set_WifiIsSTA(true);
             WifiSTA_OK = false;
-            TryingWifi = false;
             xSemaphoreTake(DataMutex, portMAX_DELAY);
             DataWifi.WifiConnected = true;
             xSemaphoreGive(DataMutex);
@@ -105,7 +104,6 @@ void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
         case ARDUINO_EVENT_WIFI_AP_START:
             Set_WifiIsSTA(false);
             WifiSTA_OK = false;
-            TryingWifi = false;
             Set_MqttConnected(false);
             xSemaphoreTake(DataMutex, portMAX_DELAY);
             DataWifi.WifiConnected = true;
@@ -146,23 +144,29 @@ void ConnectToWifi() {
     WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
     WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    WiFi.disconnect();
+    if (!WiFi.mode(WIFI_STA)) {
+        WifiSTA_OK = false;
+        Serial.println("[WiFi] Impossible d'activer le mode station");
+        return;
+    }
+    Set_WifiIsSTA(true);
+    WifiSTA_OK = false;
+    Set_MqttConnected(false);
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    DataWifi.WifiConnected = false;
+    xSemaphoreGive(DataMutex);
 
     if (ssid.isEmpty()) {
-        StartAccessPoint();
+        Serial.println("[WiFi] Aucun SSID configuré; l'AP reste désactivé.");
         return;
     }
 
-    TryingWifi = true;
-    WifiSTA_OK = false;
-    WifiAttemptStart = millis();
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA);
     Serial.printf("Connexion Wi-Fi à %s\n", ssid.c_str());
     WiFi.begin(ssid.c_str(), password.c_str());
 }
 
 void StartAccessPoint() {
-    TryingWifi = false;
     WifiSTA_OK = false;
     if (APPass.length() < 8) {
         Serial.println("[WiFi] Point d'accès refusé: mot de passe unique indisponible");

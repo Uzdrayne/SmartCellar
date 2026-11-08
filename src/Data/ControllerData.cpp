@@ -12,8 +12,11 @@
 #include <DNSServer.h>
 
 #include "ControllerData.h"
+#include "Alarm/AlertManager.h"
+#include "Alarm/SafetyAlarm.h"
 #include "Controller/ConfigurationLimits.h"
 #include "Controller/ControllerValidation.h"
+#include "Wifi/my_wifi.h"
 
 
 SemaphoreHandle_t DataMutex;
@@ -103,7 +106,7 @@ StrctDataMqtt DataMqtt;
 
 //String JSON_GLOBAL_STATUS;
 
-char JSON_GLOBAL_STATUS[2700];
+char JSON_GLOBAL_STATUS[4096];
 
 
 void InitMutex(){
@@ -330,23 +333,42 @@ void LoadCaveControllerData(StrctDataController &data){
 }
 
 void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
+    if (buffer == nullptr || maxSize == 0) {
+        Serial.println("[JSON] Buffer d'état invalide");
+        return;
+    }
 
     //Copy local des struct.
     StrctDataController LocalData ;
+    StrctDataWifi LocalWifi;
     StrctDataMqtt LocalMqtt ;
 
     xSemaphoreTake(DataMutex, portMAX_DELAY);
     LocalData = DataController ;
+    LocalWifi = DataWifi;
     LocalMqtt = DataMqtt;
     xSemaphoreGive(DataMutex);
 
+    const unsigned long snapshotTime = millis();
+    const AlertSnapshot AlertStatus = GetAlertSnapshot();
+    const SafetyAlarmConfiguration AlarmConfiguration =
+        GetSafetyAlarmConfiguration();
 
     JsonDocument doc;
+    doc["SchemaVersion"] = 1;
+    doc["UptimeMilliseconds"] = snapshotTime;
 
 
     JsonObject Sensor = doc["Sensor"].to<JsonObject>();
     Sensor["Temp"] = LocalData.Temperature;
     Sensor["Hum"]  = LocalData.Humidity;
+    Sensor["TelemetryReceived"] = AlertStatus.NanoTelemetryReceived;
+    Sensor["TelemetryAvailable"] = AlertStatus.TelemetryAvailable;
+    Sensor["MeasurementsUnavailable"] = AlertStatus.MeasurementsUnavailable;
+    Sensor["CorrectedTemp"] = LocalData.Temperature +
+        (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
+    Sensor["CorrectedHum"] = LocalData.Humidity +
+        (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
 
     JsonObject Consigne = doc["Consigne"].to<JsonObject>();
     Consigne["SetTemp"] = LocalData.SetTemp;
@@ -418,6 +440,12 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     GpioFeedback.add(LocalData.RelayGpioDehum);
     GpioFeedback.add(LocalData.RelayGpioHum);
     GpioFeedback.add(LocalData.RelayGpioFan);
+    JsonObject RelayFeedback = State["RelayFeedback"].to<JsonObject>();
+    RelayFeedback["Cold"] = LocalData.RelayGpioCold;
+    RelayFeedback["Heat"] = LocalData.RelayGpioHeat;
+    RelayFeedback["Dehum"] = LocalData.RelayGpioDehum;
+    RelayFeedback["Hum"] = LocalData.RelayGpioHum;
+    RelayFeedback["Fan"] = LocalData.RelayGpioFan;
 
     JsonObject Fan = doc["Fan"].to<JsonObject>();
     Fan["Enabled"] = LocalData.FanEnabled;
@@ -458,17 +486,71 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     DebugMsg["DehumDebugMsg"] = LocalData.DehumDebugMsg;
     DebugMsg["HumDebugMsg"]   = LocalData.HumDebugMsg;
 
+    JsonObject Alerts = doc["Alerts"].to<JsonObject>();
+    Alerts["Active"] = AlertStatus.AnyAlertActive;
+    Alerts["PrimaryActive"] = AlertStatus.PrimaryAlertActive;
+    Alerts["NanoTelemetryReceived"] = AlertStatus.NanoTelemetryReceived;
+    Alerts["TelemetryAvailable"] = AlertStatus.TelemetryAvailable;
+    Alerts["NanoLinkLost"] = AlertStatus.NanoLinkLost;
+    Alerts["MeasurementsUnavailable"] = AlertStatus.MeasurementsUnavailable;
+    Alerts["HighTemperatureActive"] = AlertStatus.HighTemperatureActive;
+    Alerts["HighTemperatureThresholdC"] =
+        AlarmConfiguration.HighTemperatureThresholdC;
+    Alerts["NanoFallback"] = AlertStatus.NanoFallback;
+    Alerts["WifiDisconnected"] = AlertStatus.WifiDisconnected;
+    Alerts["MqttDisconnected"] = AlertStatus.MqttDisconnected;
+    Alerts["HasLastMeasurement"] = AlertStatus.HasLastMeasurement;
+
+    if (AlertStatus.HasLastMeasurement) {
+        Alerts["LastValidTemperatureC"] = AlertStatus.LastValidTemperatureC;
+        Alerts["LastMeasurementAgeSeconds"] =
+            AlertStatus.LastMeasurementAgeSeconds;
+    } else {
+        Alerts["LastValidTemperatureC"] = nullptr;
+        Alerts["LastMeasurementAgeSeconds"] = nullptr;
+    }
+
+    JsonArray ActiveReasons = Alerts["ActiveReasons"].to<JsonArray>();
+    if (AlertStatus.NanoLinkLost) {
+        ActiveReasons.add("nano_link_lost");
+    } else if (AlertStatus.MeasurementsUnavailable) {
+        ActiveReasons.add("measurements_unavailable");
+    }
+    if (AlertStatus.HighTemperatureActive) {
+        ActiveReasons.add("high_temperature");
+    }
+    if (AlertStatus.NanoFallback) {
+        ActiveReasons.add("nano_fallback");
+    }
+    if (AlertStatus.WifiDisconnected) {
+        ActiveReasons.add("wifi_disconnected");
+    }
+    if (AlertStatus.MqttDisconnected) {
+        ActiveReasons.add("mqtt_disconnected");
+    }
 
     bool Connected = WiFi.status() == WL_CONNECTED;
     String Ssid = WiFi.SSID();
     int Rssi = WiFi.RSSI();
     String Ip = WiFi.localIP().toString();
+    const bool accessPointEnabled = (WiFi.getMode() & WIFI_AP) != 0;
+    const String accessPointIp = accessPointEnabled
+        ? WiFi.softAPIP().toString()
+        : String();
 
     JsonObject Wifi = doc["Wifi"].to<JsonObject>();
     Wifi["Connected"] = Connected;
+    Wifi["StaConnected"] = Connected;
     Wifi["Ssid"]      = Ssid;
+    Wifi["ConfiguredSsid"] = LocalWifi.WifiSsid;
     Wifi["Rssi"]      = Rssi;
     Wifi["Ip"]        = Ip;
+    Wifi["IsSTA"] = LocalWifi.WifiIsSTA;
+    Wifi["Scanning"] = LocalWifi.WifiScanning;
+    Wifi["AccessPointEnabled"] = accessPointEnabled;
+    Wifi["AccessPointSsid"] = accessPointEnabled ? APSsid.c_str() : "";
+    Wifi["AccessPointIp"] = accessPointIp;
+    Wifi["MdnsHostname"] = APSsid + ".local";
 
 
     JsonObject Mqtt = doc["Mqtt"].to<JsonObject>();
@@ -477,18 +559,36 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     Mqtt["mqtt_server_port"] = LocalMqtt.MqttPort;
     Mqtt["MQTTUSER"] = LocalMqtt.MqttUser;
     Mqtt["NAME"] = LocalMqtt.MqttDeviceName;
+    Mqtt["Manufacturer"] = LocalMqtt.MqttManu;
+    Mqtt["Model"] = LocalMqtt.MqttModel;
+    Mqtt["Version"] = LocalMqtt.MqttVersion;
     Mqtt["Connected"] = LocalMqtt.MqttConnected;
 
 
-   // serializeJson(doc, buffer,maxSize);
+    const size_t requiredSize = measureJson(doc);
+    if (requiredSize >= maxSize) {
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        buffer[0] = '\0';
+        xSemaphoreGive(DataMutex);
+        Serial.printf(
+            "[JSON] Buffer d'état trop petit: %u octets requis, %u disponibles\n",
+            static_cast<unsigned int>(requiredSize),
+            static_cast<unsigned int>(maxSize));
+        return;
+    }
 
-    size_t n = serializeJson(doc, buffer, maxSize);
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    const size_t n = serializeJson(doc, buffer, maxSize);
+    xSemaphoreGive(DataMutex);
 
    // Serial.println("--- Rapport de Taille JSON ---");
    // Serial.printf("Octets écrits : %u / %u\n", n, maxSize);
 
     // Si n est égal à maxSize - 1, c'est que le JSON a probablement été coupé !
-    if (n >= maxSize - 1) {
+    if (n != requiredSize) {
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        buffer[0] = '\0';
+        xSemaphoreGive(DataMutex);
         Serial.println("⚠️ ALERTE : Le buffer est TROP PETIT, le JSON est tronqué !");
     }
 
