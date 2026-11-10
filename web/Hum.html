@@ -71,6 +71,7 @@
 
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script>
 
 
@@ -119,11 +120,11 @@ DelayMinOffInput.addEventListener("input", () => {
 
 
 
-function UpdateStatus() {
-    fetch("/GlobalStatus").then(r => {
-    if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
-    return r.json();
-    }).then(d => {
+let LastGlobalStatus = null;
+function UpdateStatus(d) {
+    if (d) LastGlobalStatus = d;
+    else d = LastGlobalStatus;
+    if (!d) return;
 
     CurrentLimits = d.Limits || null;
     const hysteresisLimits = CurrentLimits && CurrentLimits.Hysteresis && CurrentLimits.Hysteresis.Hum;
@@ -141,15 +142,14 @@ function UpdateStatus() {
     
     ConsigneHum = parseFloat(d.Consigne.SetHum);
     
-    HysHighInput.value = d.HardwareHum.HysHigh;
-    HysLowInput.value = d.HardwareHum.HysLow;
-    DelayMinOnInput.value = d.HardwareHum.DelayMinOn;
-    DelayMinOffInput.value = d.HardwareHum.DelayMinOff;
+    if (!UserChanged) {
+        HysHighInput.value = d.HardwareHum.HysHigh;
+        HysLowInput.value = d.HardwareHum.HysLow;
+        DelayMinOnInput.value = d.HardwareHum.DelayMinOn;
+        DelayMinOffInput.value = d.HardwareHum.DelayMinOff;
+    }
 
     UpdateDetailSeuil();
-    }).catch(error => {
-        console.error("Erreur de lecture des paramètres humidificateur :", error);
-    });
 }
 
 
@@ -201,27 +201,15 @@ function savemodification() {
         return; // on bloque la sauvegarde
     }
 
-    // Préparation des données POST
-    const bodyData = `HysHigh=${HysHigh}&HysLow=${HysLow}&DelayMinOn=${DelayMinOn}&DelayMinOff=${DelayMinOff}`;
-
-    // Envoi vers le serveur en POST
-    fetch("/SaveHumParameters", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: bodyData
+    SmartCellarWebSocket.request("setRelaySettings", {
+        kind: "hum", hysHigh: HysHigh, hysLow: HysLow,
+        delayMinOn: DelayMinOn, delayMinOff: DelayMinOff
     })
-    .then(async r => {
-        const text = await r.text();
-        if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-        return text;
-    })
-    .then(txt => {
-        alert(txt);
-
-        // Mise à jour après confirmation serveur
-        UpdateStatus();
+    .then(result => {
+        if (!result.persisted) throw new Error("Les paramètres n'ont pas été enregistrés.");
         UserChanged = false;
         ApplyBtnEnable();
+        alert("Paramètres enregistrés.");
     })
     .catch(err => {
         console.error("Erreur lors de la sauvegarde des paramètres humidificateur :", err);
@@ -248,7 +236,7 @@ function ApplyBtnEnable() {
 
 
 
-UpdateStatus();
+SmartCellarWebSocket.onState(UpdateStatus);
 ApplyBtnEnable();
 
 

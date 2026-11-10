@@ -89,18 +89,18 @@ void Refresh_ScreenHum() {
 
         char setpointText[16];
         snprintf(setpointText, sizeof(setpointText), "%02d", static_cast<int16_t>(data.SetHum + 0.5f));
-        lv_label_set_text(ui_HumLabelSetHum, setpointText);
+        SetLabelTextIfChanged(ui_HumLabelSetHum, setpointText);
     }
 
 
     //si mesure valable, afficher l'humidité actuelle sinon afficher "--"
     if (measurementsAvailable) {
-        const float humidity = data.Humidity + (data.HumOffsetEnabled ? data.HumOffset : 0.0f);
+        const float humidity = GetCorrectedMeasurements(data).Humidity;
         char text[16];
         snprintf(text, sizeof(text), "%02.0f", humidity);
-        lv_label_set_text(ui_HumLabelCurrentHum, text);
+        SetLabelTextIfChanged(ui_HumLabelCurrentHum, text);
     } else {
-        lv_label_set_text(ui_HumLabelCurrentHum, "--");
+        SetLabelTextIfChanged(ui_HumLabelCurrentHum, "--");
     }
 
 
@@ -133,7 +133,7 @@ void HumArcSetHumValueChanged(lv_event_t *e) {
 
     char text[16];
     snprintf(text, sizeof(text), "%02.0f", consigneHum);
-    lv_label_set_text(ui_HumLabelSetHum, text);
+    SetLabelTextIfChanged(ui_HumLabelSetHum, text);
 }
 
 // Gestion de la libération de l'arc d'humidité
@@ -155,7 +155,7 @@ void HumArcSetHumReleased(lv_event_t *e) {
     DataController.SetHum = consigneHum;
     xSemaphoreGive(DataMutex);
 
-    if (changed && !Save_SetTemp_and_SetHum()) {
+    if (changed && !Save_SetHum()) {
         Serial.println("LVGL : echec de sauvegarde de la consigne humidite.");
     }
 }

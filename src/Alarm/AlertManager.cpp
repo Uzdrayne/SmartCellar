@@ -1,5 +1,6 @@
 #include "Alarm/AlertManager.h"
 
+#include "Alarm/AlertLog.h"
 #include "Alarm/SafetyAlarm.h"
 #include "Data/ControllerData.h"
 #include "Global/Global.h"
@@ -7,26 +8,7 @@
 
 namespace {
 
-bool previousPrimaryAlertActive = false;
-PrimaryAlertReason lastPrimaryAlertReason = PrimaryAlertReason::None;
-unsigned long lastPrimaryAlertRaisedAtMs = 0;
 AlertSnapshot currentAlertSnapshot = {};
-
-PrimaryAlertReason getActivePrimaryAlertReason(const AlertSnapshot& status) {
-    if (status.NanoLinkLost) {
-        return PrimaryAlertReason::NanoLinkLost;
-    }
-    if (status.MeasurementsUnavailable) {
-        return PrimaryAlertReason::MeasurementsUnavailable;
-    }
-    if (status.HighTemperatureActive) {
-        return PrimaryAlertReason::HighTemperature;
-    }
-    if (status.NanoFallback) {
-        return PrimaryAlertReason::NanoFallback;
-    }
-    return PrimaryAlertReason::None;
-}
 
 }
 
@@ -62,18 +44,8 @@ void UpdateAlertManager(const unsigned long now) {
     status.LastValidTemperatureC = safetyStatus.LastValidTemperatureC;
     status.LastMeasurementAgeSeconds = safetyStatus.LastMeasurementAgeSeconds;
 
-    if (status.PrimaryAlertActive && !previousPrimaryAlertActive) {
-        const PrimaryAlertReason reason = getActivePrimaryAlertReason(status);
-        if (reason != PrimaryAlertReason::None) {
-            lastPrimaryAlertReason = reason;
-            lastPrimaryAlertRaisedAtMs = now;
-        }
-    }
-    previousPrimaryAlertActive = status.PrimaryAlertActive;
-    status.LastPrimaryAlertReason = lastPrimaryAlertReason;
-    status.LastPrimaryAlertRaisedAtMs = lastPrimaryAlertRaisedAtMs;
-
     currentAlertSnapshot = status;
+    UpdateAlertLog(status, now);
 }
 
 AlertSnapshot GetAlertSnapshot() {

@@ -37,4 +37,10 @@ constexpr unsigned int DefaultMqttPort = 1883;
 constexpr float SafetyAlarmThresholdMinC = 0.0f;
 constexpr float SafetyAlarmThresholdMaxC = 40.0f;
 
+// Plage de mesure du capteur DHT22 (brute et corrigée).
+constexpr float MinMeasuredTemperatureC = -40.0f;
+constexpr float MaxMeasuredTemperatureC = 80.0f;
+constexpr float MinMeasuredHumidityPercent = 0.0f;
+constexpr float MaxMeasuredHumidityPercent = 100.0f;
+
 #endif

@@ -17,7 +17,6 @@ extern bool ScreenON;
 extern bool UiReady;
 
 extern lv_timer_t *Timer_ScreenRefresh;
-extern char bufftext[];
 
 void Handle_Screen_Brightness(unsigned long now);
 

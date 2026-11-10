@@ -149,7 +149,6 @@ void formatRelayMessage(
             break;
     }
     message[messageSize - 1] = '\0';
-    message[messageSize - 1] = '\0';
 }
 
 }
@@ -166,19 +165,53 @@ bool FanCycleInitialized = false;
 bool FanWasEnabled = false;
 bool FanPhaseOn = true;
 
-char N_ColdDebugMsg[200] = "";
-char LastColdDebugMsg[200] = "";
+namespace {
 
-char N_HeatDebugMsg[200] = "";
-char LastHeatDebugMsg[200] = "";
+// Délai maximal d'attente du retour GPIO du Nano avant la première commande.
+constexpr unsigned long RelayAdoptionTimeoutMs = 15000UL;
+bool relaysAdopted = false;
+// Statique : 800 octets hors de la pile de la boucle principale.
+ControllerDebugMessages debugMessages = {};
+bool controllerStarted = false;
+unsigned long controllerStartedAt = 0;
 
-char N_DehumDebugMsg[200] = "";
-char LastDehumDebugMsg[200] = "";
+unsigned long adoptedChangeTime(bool on, unsigned int minimumOnSeconds,
+                                unsigned long now) {
+    // Relais déjà en marche : délai min. ON considéré écoulé (pas de coupure
+    // forcée). Relais à l'arrêt : le délai min. OFF repart de maintenant.
+    return on ? now - static_cast<unsigned long>(minimumOnSeconds) * 1000UL : now;
+}
 
-char N_HumDebugMsg[200] = "";
-char LastHumDebugMsg[200] = "";
+// Reprend l'état réel des sorties pilotées par le Nano (mode secours pendant
+// le redémarrage du C3) pour continuer la régulation sans couper les relais.
+void adoptRelayStates(StrctDataController& data, unsigned long now) {
+    if (data.RelayFeedbackValid) {
+        data.ColdState = data.RelayGpioCold;
+        data.HeatState = data.RelayGpioHeat;
+        data.DehumState = data.RelayGpioDehum;
+        data.HumState = data.RelayGpioHum;
+        Serial.printf(
+            "[CTRL] Reprise des relais du Nano : froid %d, chaud %d, deshum %d, hum %d, ventil %d\n",
+            data.ColdState, data.HeatState, data.DehumState, data.HumState,
+            data.RelayGpioFan);
+    } else {
+        Serial.println("[CTRL] Aucun retour des relais du Nano; démarrage à l'arrêt.");
+    }
 
-void applyRelays();
+    ColdLastChangeTime = adoptedChangeTime(data.ColdState, data.ColdDelayMinOn, now);
+    HeatLastChangeTime = adoptedChangeTime(data.HeatState, data.HeatDelayMinOn, now);
+    DehumLastChangeTime = adoptedChangeTime(data.DehumState, data.DehumDelayMinOn, now);
+    HumLastChangeTime = adoptedChangeTime(data.HumState, data.HumDelayMinOn, now);
+
+    FanPhaseOn = data.RelayFeedbackValid ? data.RelayGpioFan : true;
+    FanPhaseStartedAt = now;
+    LastFanOnMinutes = data.FanOnMinutes;
+    LastFanOffMinutes = data.FanOffMinutes;
+    FanWasEnabled = data.FanEnabled;
+    FanCycleInitialized = true;
+}
+
+}
 
 void UpdateController() {
     const unsigned long now = millis();
@@ -189,20 +222,25 @@ void UpdateController() {
     LocalData = DataController;
     xSemaphoreGive(DataMutex);
 
-    const float actualTemperatureCorr =
-        LocalData.Temperature + (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
-    const float actualHumidityCorr =
-        LocalData.Humidity + (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
-    const bool temperatureValid =
-        isfinite(LocalData.Temperature) &&
-        isfinite(actualTemperatureCorr) &&
-        actualTemperatureCorr >= -40.0f &&
-        actualTemperatureCorr <= 80.0f;
-    const bool humidityValid =
-        isfinite(LocalData.Humidity) &&
-        isfinite(actualHumidityCorr) &&
-        actualHumidityCorr >= 0.0f &&
-        actualHumidityCorr <= 100.0f;
+    if (!controllerStarted) {
+        controllerStarted = true;
+        controllerStartedAt = now;
+    }
+    if (!relaysAdopted) {
+        // Aucune commande n'est envoyée au Nano tant que l'état réel est inconnu.
+        if (!LocalData.RelayFeedbackValid &&
+            now - controllerStartedAt < RelayAdoptionTimeoutMs) {
+            return;
+        }
+        adoptRelayStates(LocalData, now);
+        relaysAdopted = true;
+    }
+
+    const CorrectedMeasurements measurements = GetCorrectedMeasurements(LocalData);
+    const float actualTemperatureCorr = measurements.Temperature;
+    const float actualHumidityCorr = measurements.Humidity;
+    const bool temperatureValid = measurements.TemperatureValid;
+    const bool humidityValid = measurements.HumidityValid;
     const bool settingsValid = IsValidControllerConfiguration(LocalData);
     const bool controlInputsValid =
         settingsValid && temperatureValid && humidityValid;
@@ -261,7 +299,7 @@ void UpdateController() {
         }
         LocalData.ColdState = cold.state;
         formatRelayMessage(
-            LocalData.ColdDebugMsg, sizeof(LocalData.ColdDebugMsg),
+            debugMessages.Cold, sizeof(debugMessages.Cold),
             "❄️", "Froid", "T", "°C", "Chauffage",
             actualTemperatureCorr,
             LocalData.SetTemp + LocalData.ColdHysHigh,
@@ -287,7 +325,7 @@ void UpdateController() {
         }
         LocalData.HeatState = heat.state;
         formatRelayMessage(
-            LocalData.HeatDebugMsg, sizeof(LocalData.HeatDebugMsg),
+            debugMessages.Heat, sizeof(debugMessages.Heat),
             "🔥", "Chauffage", "T", "°C", "Froid",
             actualTemperatureCorr,
             LocalData.SetTemp + LocalData.HeatHysLow,
@@ -312,7 +350,7 @@ void UpdateController() {
         }
         LocalData.DehumState = dehum.state;
         formatRelayMessage(
-            LocalData.DehumDebugMsg, sizeof(LocalData.DehumDebugMsg),
+            debugMessages.Dehum, sizeof(debugMessages.Dehum),
             "💨", "Déshumidification", "HR", "%", "Humidification",
             actualHumidityCorr,
             LocalData.SetHum + LocalData.DehumHysHigh,
@@ -338,7 +376,7 @@ void UpdateController() {
         }
         LocalData.HumState = hum.state;
         formatRelayMessage(
-            LocalData.HumDebugMsg, sizeof(LocalData.HumDebugMsg),
+            debugMessages.Hum, sizeof(debugMessages.Hum),
             "💦", "Humidification", "HR", "%", "Déshumidification",
             actualHumidityCorr,
             LocalData.SetHum + LocalData.HumHysLow,
@@ -359,13 +397,13 @@ void UpdateController() {
             : (!temperatureValid
                 ? "mesure température corrigée invalide"
                 : "mesure humidité corrigée invalide");
-        snprintf(LocalData.ColdDebugMsg, sizeof(LocalData.ColdDebugMsg),
+        snprintf(debugMessages.Cold, sizeof(debugMessages.Cold),
                  "⚠️ Froid — ARRÊT; %s", faultReason);
-        snprintf(LocalData.HeatDebugMsg, sizeof(LocalData.HeatDebugMsg),
+        snprintf(debugMessages.Heat, sizeof(debugMessages.Heat),
                  "⚠️ Chauffage — ARRÊT; %s", faultReason);
-        snprintf(LocalData.DehumDebugMsg, sizeof(LocalData.DehumDebugMsg),
+        snprintf(debugMessages.Dehum, sizeof(debugMessages.Dehum),
                  "⚠️ Déshumidification — ARRÊT; %s", faultReason);
-        snprintf(LocalData.HumDebugMsg, sizeof(LocalData.HumDebugMsg),
+        snprintf(debugMessages.Hum, sizeof(debugMessages.Hum),
                  "⚠️ Humidification — ARRÊT; %s", faultReason);
     }
 
@@ -373,46 +411,15 @@ void UpdateController() {
 
     DataController.ColdState = LocalData.ColdState;
     DataController.HeatState = LocalData.HeatState;
-    strncpy(DataController.ColdDebugMsg, LocalData.ColdDebugMsg, sizeof(DataController.ColdDebugMsg));
-    strncpy(DataController.HeatDebugMsg, LocalData.HeatDebugMsg, sizeof(DataController.HeatDebugMsg));
 
     DataController.DehumState = LocalData.DehumState;
     DataController.HumState = LocalData.HumState;
     DataController.FanState = LocalData.FanState;
     DataController.FanPhaseElapsedSeconds = LocalData.FanPhaseElapsedSeconds;
     DataController.FanPhaseDurationSeconds = LocalData.FanPhaseDurationSeconds;
-    strncpy(DataController.DehumDebugMsg, LocalData.DehumDebugMsg, sizeof(DataController.DehumDebugMsg));
-    strncpy(DataController.HumDebugMsg, LocalData.HumDebugMsg, sizeof(DataController.HumDebugMsg));
+    DataDebugMessages = debugMessages;
 
     xSemaphoreGive(DataMutex);
 
-    applyRelays();
-}
-
-void PrintControllerMsgs() {
-    if (strcmp(N_ColdDebugMsg, LastColdDebugMsg) != 0) {
-        Serial.println(N_ColdDebugMsg);
-        strncpy(LastColdDebugMsg, N_ColdDebugMsg, sizeof(LastColdDebugMsg));
-        LastColdDebugMsg[sizeof(LastColdDebugMsg) - 1] = '\0';
-    }
-
-    if (strcmp(N_HeatDebugMsg, LastHeatDebugMsg) != 0) {
-        Serial.println(N_HeatDebugMsg);
-        strncpy(LastHeatDebugMsg, N_HeatDebugMsg, sizeof(LastHeatDebugMsg));
-        LastHeatDebugMsg[sizeof(LastHeatDebugMsg) - 1] = '\0';
-    }
-    if (strcmp(N_DehumDebugMsg, LastDehumDebugMsg) != 0) {
-        Serial.println(N_DehumDebugMsg);
-        strncpy(LastDehumDebugMsg, N_DehumDebugMsg, sizeof(LastDehumDebugMsg));
-        LastDehumDebugMsg[sizeof(LastDehumDebugMsg) - 1] = '\0';
-    }
-    if (strcmp(N_HumDebugMsg, LastHumDebugMsg) != 0) {
-        Serial.println(N_HumDebugMsg);
-        strncpy(LastHumDebugMsg, N_HumDebugMsg, sizeof(LastHumDebugMsg));
-        LastHumDebugMsg[sizeof(LastHumDebugMsg) - 1] = '\0';
-    }
-}
-
-void applyRelays() {
     SendRelayOutputs();
 }

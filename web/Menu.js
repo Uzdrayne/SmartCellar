@@ -1,4 +1,21 @@
 
+if (!window.SmartCellarWebSocket) {
+  const wsPulse = document.getElementById("ws-pulse");
+  const wsStatus = document.getElementById("ws-status");
+  if (wsPulse) wsPulse.style.backgroundColor = "#e74c3c";
+  if (wsStatus) wsStatus.textContent = "Client WebSocket non chargé";
+  console.error("La ressource WebSocketClient.js n'a pas été chargée.");
+  window.SmartCellarWebSocket = {
+    request: () => Promise.reject(new Error("Client WebSocket non chargé.")),
+    onState: () => () => {},
+    onConnection: listener => {
+      listener(false);
+      return () => {};
+    },
+    onEvent: () => () => {}
+  };
+}
+
 const wsPulse = document.getElementById("ws-pulse");
 const wsStatus = document.getElementById("ws-status");
 
@@ -134,10 +151,11 @@ let ValHumCorr = 0;
 
 let LastHardStatus = null;
 
-let UserChanged = false;
+let TempChanged = false;
+let HumChanged = false;
 let consigneSaveInProgress = false;
 function updateConsigneButtons() {
-  const disabled = !UserChanged || consigneSaveInProgress;
+  const disabled = (!TempChanged && !HumChanged) || consigneSaveInProgress;
   SaveBtnConsigne.disabled = disabled;
   CancelBtnConsigne.disabled = disabled;
 }
@@ -148,18 +166,15 @@ function applySetpointLimits(limits) {
   applyNumericLimits(SliderHum, setpoints && setpoints.Humidity);
 }
 
-let wsWatchdog; // Timer pour détecter la perte de données
-
-
 SliderTemp.addEventListener("input", () => { 
   LabelConsigneTemp.innerText = SliderTemp.value; 
-  UserChanged = true;
+  TempChanged = true;
   updateConsigneButtons();
 });
 
 SliderHum.addEventListener("input", () => { 
   LabelConsigneHum.innerText = SliderHum.value; 
-  UserChanged = true;
+  HumChanged = true;
   updateConsigneButtons();
 });
 
@@ -168,82 +183,11 @@ SliderHum.addEventListener("input", () => {
 
 
 
-// --- LOGIQUE WEBSOCKET ---
-let gateway = `ws://${window.location.hostname}/ws`;
-let websocket;
-let wsReconnectTimer = null;
-let wsReconnectDelayMs = 2000;
-let wsConnectionStableTimer = null;
-
-function initWebSocket() {
-    if (websocket && websocket.readyState !== WebSocket.CLOSED) {
-        return;
-    }
-
-    console.log('Tentative de connexion WebSocket...');
-    const socket = new WebSocket(gateway);
-    websocket = socket;
-    socket.onopen = event => onOpen(event, socket);
-    socket.onclose = event => onClose(event, socket);
-    socket.onmessage = event => onMessage(event, socket);
-}
-
-function onOpen(event, socket) {
-  if (socket !== websocket) return;
-  console.log('Connexion établie');
-  wsPulse.style.backgroundColor = "#4caf50"; // Vert
-  wsPulse.style.animation = "pulse 1.5s infinite"; // Petit effet optionnel
-  wsStatus.innerText = "Connecté";
-
-  clearTimeout(wsConnectionStableTimer);
-  wsConnectionStableTimer = setTimeout(() => {
-    if (socket === websocket) {
-      wsReconnectDelayMs = 2000;
-    }
-  }, 10000);
-}
-
-function onClose(event, socket) {
-    if (socket !== websocket) return;
-    console.log('Connexion perdue');
-    clearTimeout(wsWatchdog);
-    wsWatchdog = null;
-    clearTimeout(wsConnectionStableTimer);
-    websocket = null;
-    
-    wsPulse.style.backgroundColor = "#f44336"; // Rouge
-    wsPulse.style.animation = "none";
-    wsStatus.innerText = "Déconnecté";
-    
-    if (wsReconnectTimer === null) {
-        const reconnectDelay = wsReconnectDelayMs;
-        wsReconnectDelayMs = Math.min(wsReconnectDelayMs * 2, 30000);
-        wsReconnectTimer = setTimeout(() => {
-            wsReconnectTimer = null;
-            initWebSocket();
-        }, reconnectDelay);
-    }
-}
-
-
-
-function onMessage(event, socket) {
-    if (socket !== websocket) return;
-// 1. On annule le précédent timer de sécurité
-    clearTimeout(wsWatchdog);
-
-    // 2. On lance un nouveau timer de 3 secondes
-    // Si rien n'arrive pendant 3s, on considère que c'est déconnecté
-    wsWatchdog = setTimeout(() => {
-        if (socket !== websocket || socket.readyState !== WebSocket.OPEN) return;
-        console.log("Watchdog: Aucune donnée reçue depuis 3s");
-        socket.close();
-    }, 3000);
-
-    // 3. Traitement normal des données
-    const d = JSON.parse(event.data);
-    processData(d);
-}
+SmartCellarWebSocket.onConnection(connected => {
+  wsPulse.style.backgroundColor = connected ? "#4caf50" : "#f44336";
+  wsPulse.style.animation = connected ? "pulse 1.5s infinite" : "none";
+  wsStatus.innerText = connected ? "Connecté" : "Déconnecté";
+});
 
 
 function isValidNumber(v) {
@@ -291,9 +235,11 @@ function processData(d) {
     
 
     // Mise à jour des sliders uniquement si l'utilisateur ne touche à rien
-    if(!UserChanged){
+    if(!TempChanged){
         LabelConsigneTemp.innerText = d.Consigne.SetTemp.toFixed(2);
         SliderTemp.value = d.Consigne.SetTemp;
+    }
+    if(!HumChanged){
         LabelConsigneHum.innerText = d.Consigne.SetHum.toFixed(2);
         SliderHum.value = d.Consigne.SetHum;
     }
@@ -314,50 +260,204 @@ function processData(d) {
     updateFanCycleSvg(d.Fan);
 }
 
-// Au chargement de la page
-window.addEventListener('load', initWebSocket);
+SmartCellarWebSocket.onState(processData);
+
+
+// --- JOURNAL DES ALERTES ---
+const AlertLogCard = document.getElementById("AlertLogCard");
+const AlertLogList = document.getElementById("AlertLogList");
+const AlertLogClearBtn = document.getElementById("AlertLogClearBtn");
+
+const AlertLogLabels = {
+  nano_link_lost: "Liaison avec le Nano perdue",
+  measurements_unavailable: "Mesures indisponibles",
+  high_temperature: "Température trop élevée",
+  nano_fallback: "Mode secours du Nano",
+  wifi_disconnected: "Wi-Fi indisponible",
+  mqtt_disconnected: "MQTT indisponible",
+  abnormal_restart: "Redémarrage anormal",
+  save_failed: "Échec de sauvegarde"
+};
+// Valeurs de esp_reset_reason_t.
+const ResetReasonLabels = {
+  4: "plantage",
+  5: "chien de garde (interruption)",
+  6: "chien de garde (tâche)",
+  7: "chien de garde",
+  9: "baisse de tension"
+};
+const PointAlertTypes = new Set(["abnormal_restart", "save_failed"]);
+
+let alertLogEntries = [];
+let alertLogRevision = null;
+let alertLogRequestInProgress = false;
+let lastAlertState = null;
+
+// millis() repasse à zéro après ~49 jours : différence modulo 2^32.
+function elapsedMs(nowMs, thenMs) {
+  return ((nowMs - thenMs) % 4294967296 + 4294967296) % 4294967296;
+}
+
+function formatDuration(ms) {
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "moins d'1 min";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ${minutes % 60} min`;
+  return `${Math.floor(hours / 24)} j ${hours % 24} h`;
+}
+
+function formatClock(date, nowDate) {
+  const time = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === nowDate.toDateString()) return time;
+  const yesterday = new Date(nowDate);
+  yesterday.setDate(nowDate.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `hier ${time}`;
+  return `${date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${time}`;
+}
+
+// Heure réelle si NTP est disponible, sinon durée écoulée seule.
+function describeInstant(atMs, state) {
+  const ago = elapsedMs(state.UptimeMilliseconds, atMs);
+  if (typeof state.EpochSeconds !== "number") return `il y a ${formatDuration(ago)}`;
+  const nowDate = new Date(state.EpochSeconds * 1000);
+  const date = new Date(state.EpochSeconds * 1000 - ago);
+  return `${formatClock(date, nowDate)} (il y a ${formatDuration(ago)})`;
+}
+
+function describeAlertEntry(entry, state) {
+  if (PointAlertTypes.has(entry.type)) {
+    let text = `Le ${describeInstant(entry.lastChangeMs, state)}`;
+    if (entry.type === "abnormal_restart" && ResetReasonLabels[entry.resetReason]) {
+      text += ` · cause : ${ResetReasonLabels[entry.resetReason]}`;
+    }
+    return text;
+  }
+  const start = `Début ${describeInstant(entry.raisedAtMs, state)}`;
+  if (entry.active) {
+    // lastChangeMs = dernière réapparition pour une alerte regroupée.
+    const since = elapsedMs(state.UptimeMilliseconds, entry.lastChangeMs);
+    return `${start} · en cours depuis ${formatDuration(since)}`;
+  }
+  const end = `fin ${describeInstant(entry.lastChangeMs, state)}`;
+  if (entry.occurrences > 1) return `${start} · dernière ${end}`;
+  const duration = elapsedMs(entry.lastChangeMs, entry.raisedAtMs);
+  return `${start} · ${end} · durée ${formatDuration(duration)}`;
+}
+
+function renderAlertLog() {
+  const state = lastAlertState;
+  if (!state || alertLogEntries.length === 0) {
+    AlertLogCard.hidden = true;
+    return;
+  }
+
+  const items = alertLogEntries.map(entry => {
+    const item = document.createElement("li");
+    item.classList.toggle("active", entry.active);
+    const title = document.createElement("div");
+    title.className = "alert-log-title";
+    const label = AlertLogLabels[entry.type] || entry.type;
+    title.textContent = (entry.active ? "🔴 " : "🟠 ") + label +
+      (entry.occurrences > 1 ? ` (×${entry.occurrences})` : "");
+    const detail = document.createElement("div");
+    detail.className = "alert-log-detail";
+    detail.textContent = describeAlertEntry(entry, state);
+    item.append(title, detail);
+    return item;
+  });
+  AlertLogList.replaceChildren(...items);
+
+  const anyActive = alertLogEntries.some(entry => entry.active);
+  AlertLogCard.classList.toggle("alert-log-active", anyActive);
+  AlertLogClearBtn.disabled = alertLogEntries.every(entry => entry.active);
+  AlertLogCard.hidden = false;
+}
+
+async function loadAlertLog() {
+  if (alertLogRequestInProgress) return;
+  alertLogRequestInProgress = true;
+  try {
+    const result = await SmartCellarWebSocket.request("getAlertLog", {});
+    alertLogEntries = Array.isArray(result.entries) ? result.entries : [];
+    alertLogRevision = result.revision;
+    renderAlertLog();
+  } catch (error) {
+    console.error("Impossible de lire le journal des alertes :", error);
+  } finally {
+    alertLogRequestInProgress = false;
+  }
+}
+
+async function ClearAlertLog() {
+  AlertLogClearBtn.disabled = true;
+  try {
+    await SmartCellarWebSocket.request("clearAlertLog", {});
+  } catch (error) {
+    console.error("Impossible d'effacer le journal des alertes :", error);
+    alert(error.message || "Impossible d'effacer le journal des alertes.");
+  }
+  await loadAlertLog();
+}
+
+SmartCellarWebSocket.onState(state => {
+  lastAlertState = state;
+  const revision = state.Alerts && state.Alerts.LogRevision;
+  if (typeof revision === "number" && revision !== alertLogRevision) {
+    loadAlertLog();
+  } else {
+    renderAlertLog();
+  }
+});
 
 
 
 
 function SaveSettings() {
-    if (!UserChanged || consigneSaveInProgress) {
+    if ((!TempChanged && !HumChanged) || consigneSaveInProgress) {
         return;
     }
 
-    const newTemp = SliderTemp.value;
-    const newHum = SliderHum.value;
+    const newTemp = Number(SliderTemp.value);
+    const newHum = Number(SliderHum.value);
+    const saveTemperature = TempChanged;
+    const saveHumidity = HumChanged;
     consigneSaveInProgress = true;
     updateConsigneButtons();
 
-    fetch("/SaveConsignes", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `Temp=${newTemp}&Hum=${newHum}`
-    })
-    .then(async response => {
-        const text = await response.text();
-        if (!response.ok) {
-            throw new Error(text || `HTTP ${response.status}`);
-        }
-        return text;
-    })
-    .then(text => {
-        UserChanged = false;
-        consigneSaveInProgress = false;
-        updateConsigneButtons();
-        alert(text);
-    })
-    .catch(error => {
-        consigneSaveInProgress = false;
-        updateConsigneButtons();
-        console.error("Erreur lors de la sauvegarde consignes :", error);
-        alert(`Échec de la sauvegarde : ${error.message}`);
+    const failures = [];
+    const saves = [];
+    if (saveTemperature) {
+      saves.push(SmartCellarWebSocket.request("setTemperature", { value: newTemp })
+        .then(result => {
+          if (result.persisted !== true) throw new Error("Sauvegarde température incomplète.");
+          if (Number(SliderTemp.value) === newTemp) TempChanged = false;
+        })
+        .catch(error => failures.push(`Température : ${error.message}`)));
+    }
+    if (saveHumidity) {
+      saves.push(SmartCellarWebSocket.request("setHumidity", { value: newHum })
+        .then(result => {
+          if (result.persisted !== true) throw new Error("Sauvegarde humidité incomplète.");
+          if (Number(SliderHum.value) === newHum) HumChanged = false;
+        })
+        .catch(error => failures.push(`Humidité : ${error.message}`)));
+    }
+
+    Promise.all(saves).then(() => {
+      consigneSaveInProgress = false;
+      updateConsigneButtons();
+      if (failures.length > 0) {
+        alert(`Échec de sauvegarde :\n${failures.join("\n")}`);
+      } else {
+        alert("Consignes sauvegardées.");
+      }
     });
 }
 function UndoChanges() {
   if (consigneSaveInProgress) return;
-  UserChanged = false;
+  TempChanged = false;
+  HumChanged = false;
   updateConsigneButtons();
 }
 

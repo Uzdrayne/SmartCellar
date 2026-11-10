@@ -3,6 +3,7 @@
 #include <time.h>
 #include <ui.h>
 #include "Alarm/AlertManager.h"
+#include "Controller/ControllerValidation.h"
 #include "Global/Global.h"
 #include "LVGL/Lvgl_Global.h"
 
@@ -37,7 +38,7 @@ namespace {
       constexpr time_t minimumValidEpoch = 1577836800; // 2020-01-01 UTC
       const time_t now = time(nullptr);
       if (now < minimumValidEpoch) {
-          lv_label_set_text(ui_HomeLabelDateTime, "Attente NTP...");
+          SetLabelTextIfChanged(ui_HomeLabelDateTime, "Attente NTP...");
           return;
       }
 
@@ -45,11 +46,11 @@ namespace {
       char dateText[32];
       if (localtime_r(&now, &localTime) == nullptr ||
           strftime(dateText, sizeof(dateText), "%d/%m/%Y %H:%M", &localTime) == 0) {
-          lv_label_set_text(ui_HomeLabelDateTime, "Heure indisponible");
+          SetLabelTextIfChanged(ui_HomeLabelDateTime, "Heure indisponible");
           return;
       }
 
-      lv_label_set_text(ui_HomeLabelDateTime, dateText);
+      SetLabelTextIfChanged(ui_HomeLabelDateTime, dateText);
   }
 
 
@@ -68,37 +69,39 @@ void Refresh_ScreenHome(){
   set_switch_state(ui_HomeSwitchWifiState,WiFi.status() == WL_CONNECTED);
 
   //serial avec la platine relais (arduino nano)
-  const bool sensorReady = HasValidControllerMeasurements(localData);
+  const CorrectedMeasurements corrected = GetCorrectedMeasurements(localData);
+  const bool sensorReady = corrected.Valid();
   set_switch_state(ui_HomeSwitchSerialState, sensorReady);
 
-  //Mqtt
-  set_switch_state(ui_HomeSwitchMqttState, mqtt.connected());
+  //Mqtt : drapeau protégé, le client MQTT appartient à sa propre tâche
+  set_switch_state(ui_HomeSwitchMqttState, Get_MqttConnected());
     
   //actualiser la date et l'heure
   refreshHomeDateLabel();
 
+  char text[40];
 
   //Actualisation des valeurs du capteur et consigne
   if(sensorReady) {
 
-    const float correctedTemperature = localData.Temperature + (localData.TempOffsetEnabled ? localData.TempOffset : 0.0f);
-    const float correctedHumidity = localData.Humidity + (localData.HumOffsetEnabled ? localData.HumOffset : 0.0f);
+    const float correctedTemperature = corrected.Temperature;
+    const float correctedHumidity = corrected.Humidity;
 
-    sprintf(bufftext,"%04.1f",correctedTemperature);
-    lv_label_set_text(ui_HomeLabelCurrentTemp, bufftext);
+    snprintf(text, sizeof(text), "%04.1f", correctedTemperature);
+    SetLabelTextIfChanged(ui_HomeLabelCurrentTemp, text);
 
-    sprintf(bufftext,"%02.0f",correctedHumidity);
-    lv_label_set_text(ui_HomeLabelCurrentHum, bufftext);
+    snprintf(text, sizeof(text), "%02.0f", correctedHumidity);
+    SetLabelTextIfChanged(ui_HomeLabelCurrentHum, text);
 
 
   } else {
-    lv_label_set_text(ui_HomeLabelCurrentTemp, "--.-");
-    lv_label_set_text(ui_HomeLabelCurrentHum, "--");
+    SetLabelTextIfChanged(ui_HomeLabelCurrentTemp, "--.-");
+    SetLabelTextIfChanged(ui_HomeLabelCurrentHum, "--");
   }
 
   //Actualisation des consignes
-  sprintf(bufftext,"Cible %04.1f°C / %02.0f%%",localData.SetTemp,localData.SetHum);
-  lv_label_set_text(ui_HomeLabelConsignes, bufftext);
+  snprintf(text, sizeof(text), "Cible %04.1f°C / %02.0f%%", localData.SetTemp, localData.SetHum);
+  SetLabelTextIfChanged(ui_HomeLabelConsignes, text);
 
   
   //actualisation des états des actionneurs

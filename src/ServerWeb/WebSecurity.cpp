@@ -212,7 +212,13 @@ void AddWebSecurityMiddleware(AsyncWebServer& webServer) {
             return;
         }
 
-        if ((request->method() == HTTP_POST || request->isWebSocketUpgrade()) &&
+        if (request->method() == HTTP_POST && !hasSameOrigin(request)) {
+            request->send(403, "text/plain", "Origine de requête refusée.");
+            return;
+        }
+
+        if (request->isWebSocketUpgrade() &&
+            request->hasHeader("Origin") &&
             !hasSameOrigin(request)) {
             request->send(403, "text/plain", "Origine de requête refusée.");
             return;

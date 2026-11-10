@@ -36,15 +36,17 @@
 </div>
 
 <!-- 🔍 Scan WiFi -->
-<div class="card">
+<form class="card" id="WifiForm" autocomplete="off" onsubmit="event.preventDefault(); SaveWifi();">
   <h3>🔍 Réseaux disponibles</h3>
-  <button class="btn btn-blue" id="ScanBtn" onclick="ScanWifi()">🔍 Scanner WiFi</button>
+  <button type="button" class="btn btn-blue" id="ScanBtn" onclick="ScanWifi()">🔍 Scanner WiFi</button>
   <div id="ScanSpinner" class="spinner"></div>
   <p id="ScanStatus" class="hidden">Scan en cours...</p>
-  <select id="Ssid"></select>
-  <input type="password" id="Pass" placeholder="Mot de passe">
-  <button class="btn btn-blue" onclick="SaveWifi()">💾 Enregistrer</button>
-</div>
+  <select id="Ssid" autocomplete="off"></select>
+  <!-- Identifiant caché attendu par les navigateurs pour un formulaire avec mot de passe. -->
+  <input type="text" id="SsidUsername" autocomplete="username" readonly hidden>
+  <input type="password" id="Pass" placeholder="Mot de passe" autocomplete="new-password">
+  <button type="submit" class="btn btn-blue">💾 Enregistrer</button>
+</form>
 
 
 
@@ -53,135 +55,117 @@
   <button class="btn btn-gray" onclick="window.history.back()">⬅ Retour</button>
 </div>
 
+<script src="/WebSocketClient.js"></script>
 <script>
+const ScanButton = document.getElementById("ScanBtn");
+const ScanSpinner = document.getElementById("ScanSpinner");
+const ScanStatus = document.getElementById("ScanStatus");
+const SsidSelect = document.getElementById("Ssid");
+const PasswordInput = document.getElementById("Pass");
+const SsidUsername = document.getElementById("SsidUsername");
+let scanInProgress = false;
 
-/*
-function ScanWifi(){
-  const Btn = document.getElementById("ScanBtn");
-  const Spinner = document.getElementById("ScanSpinner");
-  const Status = document.getElementById("ScanStatus");
-
-  Btn.disabled = true;
-  Btn.style.opacity = 0.6;
-  Status.classList.remove("hidden");
-  Spinner.style.display = "block";
-
-  fetch("/Scan")
-    .then(r => r.text())
-    .then(t => {
-      Ssid.innerHTML = t;
-    })
-    .finally(() => {
-      Btn.disabled = false;
-      Btn.style.opacity = 1;
-      Spinner.style.display = "none";
-      Status.classList.add("hidden");
-    });
+function syncSsidUsername() {
+  SsidUsername.value = SsidSelect.value;
 }
-*/
+SsidSelect.addEventListener("change", syncSsidUsername);
 
+function setScanInProgress(active, message) {
+  scanInProgress = active;
+  ScanButton.disabled = active;
+  ScanButton.style.opacity = active ? 0.6 : 1;
+  ScanSpinner.style.display = active ? "block" : "none";
+  ScanStatus.classList.toggle("hidden", !active && !message);
+  if (message) ScanStatus.textContent = message;
+  else if (active) ScanStatus.textContent = "Scan en cours...";
+}
 
+function displayScanResults(networks) {
+  SsidSelect.replaceChildren();
+  networks.forEach(network => {
+    if (!network || typeof network.ssid !== "string") return;
+    const option = document.createElement("option");
+    option.value = network.ssid;
+    option.textContent = `${network.ssid} (${network.rssi} dBm)${network.secure ? " 🔒" : ""}`;
+    SsidSelect.appendChild(option);
+  });
+  syncSsidUsername();
+  setScanInProgress(false);
+  ScanStatus.classList.add("hidden");
+}
+
+async function refreshScanResults() {
+  try {
+    const result = await SmartCellarWebSocket.request("getWifiScanResults", {});
+    if (result.scanning) {
+      setScanInProgress(true);
+    } else if (result.hasResults && Array.isArray(result.networks)) {
+      displayScanResults(result.networks);
+    } else if (scanInProgress) {
+      setScanInProgress(false);
+    }
+  } catch (error) {
+    console.error("Impossible de récupérer les résultats du scan Wi-Fi :", error);
+  }
+}
 
 async function ScanWifi() {
-  const Btn = document.getElementById("ScanBtn");
-  const Spinner = document.getElementById("ScanSpinner");
-  const Status = document.getElementById("ScanStatus");
-
-  Btn.disabled = true;
-  Btn.style.opacity = 0.6;
-  Status.classList.remove("hidden");
-  Spinner.style.display = "block";
-
+  setScanInProgress(true);
   try {
-    const scanResponse = await fetch("/Scan", { method: "POST" });
-    if (!scanResponse.ok) {
-      throw new Error(await scanResponse.text());
+    await SmartCellarWebSocket.request("scanWifi", {});
+  } catch (error) {
+    console.error("Erreur de lancement du scan Wi-Fi :", error);
+    if (error.code !== "connection_lost" && error.code !== "timeout") {
+      setScanInProgress(false, error.message);
     }
-  } catch (err) {
-    console.error("Erreur de lancement du scan:", err);
-    Btn.disabled = false;
-    Btn.style.opacity = 1;
-    Spinner.style.display = "none";
-    Status.classList.add("hidden");
+  }
+}
+
+async function SaveWifi() {
+  if (SsidSelect.value === "" || PasswordInput.value === "") {
+    alert("⚠️ Veuillez renseigner le SSID et le mot de passe.");
     return;
   }
 
-  // Étape 2 : On vérifie périodiquement les résultats
-  const checkResults = setInterval(async () => {
-    try {
-      const response = await fetch("/GetScanResults");
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-      const text = await response.text();
-
-      if (text !== "WAITING" && text !== "NOT_STARTED") {
-        // Le scan est fini, on a reçu les <option>...
-        Ssid.innerHTML = text;
-        
-        // On arrête la boucle et on réactive le bouton
-        clearInterval(checkResults);
-        Btn.disabled = false;
-        Btn.style.opacity = 1;
-        Spinner.style.display = "none";
-        Status.classList.add("hidden");
-      }
-    } catch (err) {
-      console.error("Erreur de scan:", err);
-      clearInterval(checkResults);
-      Btn.disabled = false;
-    }
-  }, 500); // On demande toutes les 1 seconde
-}
-
-
-function SaveWifi(){
-
-  if(Ssid.value === "" || Pass.value === ""){
-    alert("⚠️ Veuillez renseigner le SSID et le mot de passe.");
-    return; // on stoppe ici
-  }
-
-  fetch("/SaveWifi",{
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:`Ssid=${Ssid.value}&Pass=${Pass.value}`
-  })
-  .then(async response=> {
-    const txt = await response.text();
-    if (!response.ok) {
-      throw new Error(txt);
-    }
-
-    alert(txt);
-    const restartResponse = await fetch("/RestartESP", { method: "POST" });
-    if (!restartResponse.ok) {
-      throw new Error(await restartResponse.text());
-    }
-  })
-  .catch(err => {
-      console.error("Erreur lors de la sauvegarde WIFI :", err);
-      alert(err.message || "Erreur de communication avec le serveur.");
-  });
- 
-}
-
-function UpdateWifiInfo(){
-  fetch("/GlobalStatus")
-    .then(r=>r.json())
-    .then(d=>{
-      Connected.innerText = d.Wifi.Connected ? "Connecté" : "Non connecté";
-      Connected.style.color = d.Wifi.Connected ? "green" : "red";
-      CurrentSSID.innerText = d.Wifi.Ssid || "--";
-      Rssi.innerText = d.Wifi.Connected ? d.Wifi.Rssi : "--";
-      Ip.innerText = d.Wifi.Connected ? d.Wifi.Ip : "--";
+  try {
+    const result = await SmartCellarWebSocket.request("saveWifiSettings", {
+      ssid: SsidSelect.value,
+      password: PasswordInput.value
     });
+    if (!result.persisted) throw new Error("Les paramètres Wi-Fi n'ont pas été enregistrés.");
+    alert("Paramètres Wi-Fi enregistrés. Redémarrage de l'appareil…");
+    await SmartCellarWebSocket.request("restartDevice", {});
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde Wi-Fi :", error);
+    alert(error.message || "Erreur de communication avec le serveur.");
+  }
 }
 
+function UpdateWifiInfo(data) {
+  if (!data || !data.Wifi) return;
+  const connected = data.Wifi.Connected;
+  document.getElementById("Connected").innerText = connected ? "Connecté" : "Non connecté";
+  document.getElementById("Connected").style.color = connected ? "green" : "red";
+  document.getElementById("CurrentSSID").innerText = data.Wifi.Ssid || "--";
+  document.getElementById("Rssi").innerText = connected ? data.Wifi.Rssi : "--";
+  document.getElementById("Ip").innerText = connected ? data.Wifi.Ip : "--";
+}
 
-UpdateWifiInfo();
-setInterval(UpdateWifiInfo, 1000);
-
+SmartCellarWebSocket.onState(UpdateWifiInfo);
+SmartCellarWebSocket.onEvent("wifiScanComplete", event => {
+  displayScanResults(event.payload && Array.isArray(event.payload.networks)
+    ? event.payload.networks
+    : []);
+});
+SmartCellarWebSocket.onEvent("wifiScanFailed", event => {
+  const message = event.payload && event.payload.message
+    ? event.payload.message
+    : "Le scan Wi-Fi a échoué.";
+  setScanInProgress(false, message);
+});
+SmartCellarWebSocket.onConnection(connected => {
+  if (connected) refreshScanResults();
+});
 </script>
 
 </body>

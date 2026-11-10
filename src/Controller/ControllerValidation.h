@@ -20,4 +20,17 @@ bool IsValidTemperatureRelaySettings(const StrctDataController& data);
 bool IsValidHumidityRelaySettings(const StrctDataController& data);
 bool IsValidControllerConfiguration(const StrctDataController& data);
 
+// Mesures corrigées par les offsets, avec leur validité (plage DHT22).
+struct CorrectedMeasurements {
+    float Temperature;
+    float Humidity;
+    bool TemperatureValid;
+    bool HumidityValid;
+    bool Valid() const { return TemperatureValid && HumidityValid; }
+};
+
+bool IsMeasuredTemperatureInRange(float value);
+bool IsMeasuredHumidityInRange(float value);
+CorrectedMeasurements GetCorrectedMeasurements(const StrctDataController& data);
+
 #endif

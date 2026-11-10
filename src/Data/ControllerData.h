@@ -3,6 +3,7 @@
 
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <Preferences.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
@@ -93,15 +94,20 @@ struct StrctDataController {
     bool RelayGpioHum;
     bool RelayGpioFan;
 
-
-    //----MESSAGES DEBUG-------
-    char ColdDebugMsg[200];// Message debug froid
-    char HeatDebugMsg[200]; // Message debug chaud
-    char DehumDebugMsg[200];// Message debug déhumidificateur
-    char HumDebugMsg[200];// Message debug humidificateur
-
 };
 extern StrctDataController DataController;
+
+// Explications de régulation affichées par la page Web. Séparées de
+// StrctDataController pour ne pas recopier 800 octets à chaque instantané.
+constexpr size_t ControllerDebugMessageSize = 200;
+struct ControllerDebugMessages {
+    char Cold[ControllerDebugMessageSize];
+    char Heat[ControllerDebugMessageSize];
+    char Dehum[ControllerDebugMessageSize];
+    char Hum[ControllerDebugMessageSize];
+};
+// Protégé par DataMutex.
+extern ControllerDebugMessages DataDebugMessages;
 
 struct StrctDataWifi {
     String WifiSsid;
@@ -115,7 +121,7 @@ extern StrctDataWifi DataWifi;
 struct StrctDataMqtt {
     bool MqttEnable;
     
-    String MqttServer ;  // MQTT Server URL
+    String MqttServer ;  // MQTT broker host name or IP address
     uint16_t MqttPort ;               // MQTT Server port
 
     String MqttUser ;                    // MQTT Username
@@ -131,10 +137,10 @@ struct StrctDataMqtt {
 extern StrctDataMqtt DataMqtt;
 
 
-//extern String JSON_GLOBAL_STATUS ;
-
-extern char JSON_GLOBAL_STATUS[4096];
-void Get_Json_GlobalStatus(char* buffer, size_t maxSize);
+// Remplit l'état temps réel envoyé aux clients WebSocket (sans les limites).
+void FillGlobalStatus(JsonObject status);
+// Limites de configuration, constantes : envoyées une seule fois par connexion.
+void FillConfigurationLimits(JsonObject limits);
 
 
 
@@ -158,15 +164,16 @@ bool Get_MqttConnected();
 
 
 //sauvegarder dans preferences
-bool Save_SetTemp_and_SetHum();
-void Save_Wifi_Parameters();
-void Save_Mqtt_Parameters();
+bool Save_SetTemp();
+bool Save_SetHum();
+bool Save_Wifi_Parameters();
+bool Save_Mqtt_Parameters();
 bool Save_SensorOffset();
 bool Save_ColdHardware();
 bool Save_HeatHardware();
 bool Save_DehumHardware();
 bool Save_HumHardware();
-void Save_FanSettings();
+bool Save_FanSettings();
 
 
 

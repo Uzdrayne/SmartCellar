@@ -17,8 +17,6 @@ lv_timer_t *Timer_ScreenRefresh = nullptr;
 bool WifiSTA_OK = false;
 bool dnsActive = false;
 
-char bufftext[100];
-
 void Handle_Screen_Brightness(const unsigned long now) {
     const int32_t touchAgeMs = static_cast<int32_t>(now - LastTouch);
 

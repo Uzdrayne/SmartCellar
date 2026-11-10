@@ -1,10 +1,12 @@
 #include "SerialLink/SerialLink.h"
 
 #include <ArduinoJson.h>
+#include <esp_heap_caps.h>
 #include <math.h>
 #include <string.h>
 
 #include "Data/ControllerData.h"
+#include "Controller/ControllerValidation.h"
 
 namespace {
 
@@ -206,11 +208,15 @@ void setSensorDataStale() {
     xSemaphoreGive(DataMutex);
 }
 
-void processTelemetry(const char *line, unsigned long now) {
+void processTelemetry(char *line, unsigned long now) {
     JsonDocument message;
     const DeserializationError error = deserializeJson(message, line);
     if (error) {
-        Serial.printf("[UART] JSON invalide : %s\n", error.c_str());
+        Serial.printf("[UART] JSON invalide : %s (heap libre %u, bloc max %u)\n",
+                      error.c_str(),
+                      static_cast<unsigned int>(ESP.getFreeHeap()),
+                      static_cast<unsigned int>(
+                          heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)));
         return;
     }
 
@@ -277,8 +283,8 @@ void processTelemetry(const char *line, unsigned long now) {
 
     const float temperature = temperatureValue.as<float>();
     const float humidity = humidityValue.as<float>();
-    if (!isfinite(temperature) || temperature < -40.0f || temperature > 80.0f ||
-        !isfinite(humidity) || humidity < 0.0f || humidity > 100.0f) {
+    if (!IsMeasuredTemperatureInRange(temperature) ||
+        !IsMeasuredHumidityInRange(humidity)) {
         Serial.println("[UART] Mesures hors limites DHT22");
         return;
     }

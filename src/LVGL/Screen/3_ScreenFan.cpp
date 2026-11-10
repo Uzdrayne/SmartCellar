@@ -57,10 +57,10 @@ namespace {
 
         char text[16];
         snprintf(text, sizeof(text), "%02u", fanDraftOnMinutes);
-        lv_label_set_text(ui_FanLabelOnTime, text);
+        SetLabelTextIfChanged(ui_FanLabelOnTime, text);
 
         snprintf(text, sizeof(text), "%02u", fanDraftOffMinutes);
-        lv_label_set_text(ui_FanLabelOffTime, text);
+        SetLabelTextIfChanged(ui_FanLabelOffTime, text);
     }
 
     void UpdateFanControlStates() {
@@ -73,19 +73,13 @@ namespace {
             lv_obj_add_state(ui_FanSwitchActive, LV_STATE_DISABLED);
         }
 
-        const lv_imgbtn_state_t imgButtonState = editable
-            ? LV_IMGBTN_STATE_RELEASED
-            : LV_IMGBTN_STATE_DISABLED;
-        lv_imgbtn_set_state(ui_FanButtonOnMinus, imgButtonState);
-        lv_imgbtn_set_state(ui_FanButtonOnPlus, imgButtonState);
-        lv_imgbtn_set_state(ui_FanButtonOffMinus, imgButtonState);
-        lv_imgbtn_set_state(ui_FanButtonOffPlus, imgButtonState);
+        SetImgButtonEnabled(ui_FanButtonOnMinus, editable);
+        SetImgButtonEnabled(ui_FanButtonOnPlus, editable);
+        SetImgButtonEnabled(ui_FanButtonOffMinus, editable);
+        SetImgButtonEnabled(ui_FanButtonOffPlus, editable);
 
-        const lv_imgbtn_state_t actionButtonState = changesPending
-            ? LV_IMGBTN_STATE_RELEASED
-            : LV_IMGBTN_STATE_DISABLED;
-        lv_imgbtn_set_state(ui_FanButtonApplyChanges, actionButtonState);
-        lv_imgbtn_set_state(ui_FanButtonDiscardChanges, actionButtonState);
+        SetImgButtonEnabled(ui_FanButtonApplyChanges, changesPending);
+        SetImgButtonEnabled(ui_FanButtonDiscardChanges, changesPending);
     }
 
     void ChangeFanDuration(unsigned int& duration, bool increase) {

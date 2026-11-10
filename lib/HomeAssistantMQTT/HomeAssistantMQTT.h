@@ -3,66 +3,77 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
 
-#define HAMQTT_MAXITEMS 30
+constexpr size_t HAMQTT_MAXITEMS = 24;
+constexpr size_t HAMQTT_ITEM_NAME_SIZE = 32;
+constexpr size_t HAMQTT_ITEM_VALUE_SIZE = 96;
+constexpr size_t HAMQTT_TOPIC_SIZE = 128;
 
-struct ItemValue
-{
-  char* item;
-  char* value;
+// Description d'une entité Home Assistant (découverte MQTT).
+struct HaEntityConfig {
+  const char* component;    // "sensor", "binary_sensor", "number", "switch"
+  const char* name;         // Clé dans l'état JSON et suffixe des topics
+  const char* category;     // nullptr ou "config"
+  const char* deviceClass;  // nullptr si aucune
+  const char* stateClass;   // nullptr si aucune
+  const char* icon;         // nullptr si aucune
+  const char* unit;         // nullptr si aucune
+  bool command;             // Abonnement à <Manufacturer>/<DeviceName>/set/<name>
+  bool displayPrecision;    // suggested_display_precision = 2
+  float min;                // number uniquement
+  float max;
+  float step;
 };
 
 class HomeAssistantMQTT
 {
-  private:
-    PubSubClient* mqttClient = nullptr;
-
-    char* MqttStateTopic = nullptr; // <Manufacturer>/<DeviceName>/state
-    char* StateTopic = nullptr;     // <Manufacturer>/<DeviceName>
-
-    ItemValue* values[HAMQTT_MAXITEMS];
-	
-	
-    unsigned long _nextMqttAttemptMs = 0;
-    unsigned long _mqttBackoffMs = 1000;    // 1s au début
-    const unsigned long _mqttBackoffMaxMs = 30000; // 30s max
-
-
-    void connect();
-    void publishConfig(const char* type, String category, String deviceClass, String stateClass, String name, String icon, String unit, bool commandTopic, bool stateTopic, String commandTopicName, String complement, String startupValue);
-    void MqttCallback(char* topic, byte* payload, unsigned int length);
-
-    typedef void (*CallbackFunction) (String item, String payload, bool readFromMQTT);
-    CallbackFunction cb_callback = NULL;
-
   public:
+    // item = nom de l'entité, payload = texte reçu (terminé par '\0').
+    typedef void (*CallbackFunction)(const char* item, const char* payload);
+
     String MqttUser;
     String MqttPassword;
-  
+
     String Manufacturer;
     String Model;
     String Version;
     String Name;
     String DeviceName;
-  
-    HomeAssistantMQTT();
-    void begin(WiFiClient* wifiClient, const char* server, const uint16_t port);
-    void loop();
 
+    void begin(WiFiClient* wifiClient, const char* server, uint16_t port);
+    void loop();
     bool connected();
-    void readValues();
-    void sendValues();
     void setCallback(CallbackFunction f);
 
-    void setValue(String item, String value);
-    String getValue(String item);
+    void publishDiscovery(const HaEntityConfig& entity);
+    // Renvoie true si la valeur a changé depuis la dernière publication.
+    bool setValue(const char* item, const char* value);
+    // Publie l'état complet si une valeur a changé, ou si force est vrai.
+    bool sendValues(bool force = false);
 
-    void publishConfigSensor(String deviceClass, String stateClass, String name, String icon, String unit, String startupValue);
-    void publishConfigTextSensor(String name, String icon, String startupValue);
-    void publishConfigBinarySensor(String deviceClass, String name, String icon, String payloadOff, String payloadOn, String startupValue);
-    void publishConfigNumber(String category, String name, String icon, String unit, String min, String max, String startupValue, String step = "0.1");
-    void publishConfigButton(String category, String name, String icon, String commandTopicName, String payload);
-    void publishConfigSelect(String category, String name, String icon, String options[], unsigned short optionsCount, String startupValue);
-    void publishConfigSwitch(String category, String name, String icon, String startupValue);
+  private:
+    struct ItemValue {
+      char item[HAMQTT_ITEM_NAME_SIZE];
+      char value[HAMQTT_ITEM_VALUE_SIZE];
+    };
+
+    PubSubClient* mqttClient = nullptr;
+    // PubSubClient ne copie pas le nom d'hôte : il doit vivre aussi longtemps que le client.
+    char serverHost[HAMQTT_TOPIC_SIZE] = {};
+    char availabilityTopic[HAMQTT_TOPIC_SIZE] = {};  // <Manufacturer>/<DeviceName>/state
+    char stateTopic[HAMQTT_TOPIC_SIZE] = {};         // <Manufacturer>/<DeviceName>
+    char commandTopicPrefix[HAMQTT_TOPIC_SIZE] = {}; // <Manufacturer>/<DeviceName>/set/
+
+    ItemValue values[HAMQTT_MAXITEMS] = {};
+    size_t valueCount = 0;
+    bool valuesDirty = false;
+
+    unsigned long _nextMqttAttemptMs = 0;
+    unsigned long _mqttBackoffMs = 1000;
+    const unsigned long _mqttBackoffMaxMs = 30000;
+
+    CallbackFunction cb_callback = nullptr;
+
+    void connect();
+    void MqttCallback(char* topic, byte* payload, unsigned int length);
 };

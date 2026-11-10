@@ -51,6 +51,7 @@
 </div>
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script>
 let userChanged = false;
 let fanDurationLimits = null;
@@ -74,14 +75,8 @@ function updateButtons() {
   CancelBtn.disabled = !userChanged;
 }
 
-async function updateStatus() {
-  try {
-    const response = await fetch("/GlobalStatus");
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+function updateStatus(data) {
+    if (!data) return;
     if (!data.Fan || typeof data.Fan.Enabled !== "boolean" ||
         typeof data.Fan.State !== "boolean") {
       throw new Error("État de ventilation absent de GlobalStatus");
@@ -101,12 +96,6 @@ async function updateStatus() {
     FanRelayStatus.textContent = data.Fan.State ? "ON" : "OFF";
     FanCycleStatus.textContent =
       `Cycle configuré : ${data.Fan.OnMinutes} min ON / ${data.Fan.OffMinutes} min OFF`;
-  } catch (error) {
-    FanEnabledStatus.textContent = "Indisponible";
-    FanRelayStatus.textContent = "Indisponible";
-    FanCycleStatus.textContent = "Impossible de lire la configuration de la ventilation.";
-    console.error("Erreur de lecture de la configuration de ventilation :", error);
-  }
 }
 
 async function saveFanSettings() {
@@ -121,27 +110,17 @@ async function saveFanSettings() {
     return;
   }
 
-  const body = new URLSearchParams({
-    FanEnabled: FanEnabledInput.checked ? "true" : "false",
-    FanOnMinutes: String(onMinutes),
-    FanOffMinutes: String(offMinutes)
-  });
-
   try {
-    const response = await fetch("/SaveFanParameters", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body
+    const result = await SmartCellarWebSocket.request("saveFanSettings", {
+      enabled: FanEnabledInput.checked,
+      onMinutes,
+      offMinutes
     });
-    const message = await response.text();
-    if (!response.ok) {
-      throw new Error(message || `Erreur HTTP ${response.status}`);
-    }
+    if (!result.persisted) throw new Error("Les paramètres de ventilation n'ont pas été enregistrés.");
 
-    alert(message);
+    alert("Paramètres de ventilation enregistrés.");
     userChanged = false;
     updateButtons();
-    await updateStatus();
   } catch (error) {
     console.error("Erreur lors de l'enregistrement de la ventilation :", error);
     alert(`Impossible d'enregistrer les paramètres : ${error.message}`);
@@ -151,16 +130,26 @@ async function saveFanSettings() {
 function undoChanges() {
   userChanged = false;
   updateButtons();
-  updateStatus();
+  if (LastGlobalStatus) updateStatus(LastGlobalStatus);
 }
 
 FanEnabledInput.addEventListener("change", markChanged);
 FanOnMinutesInput.addEventListener("input", markChanged);
 FanOffMinutesInput.addEventListener("input", markChanged);
 
-updateStatus();
+let LastGlobalStatus = null;
+SmartCellarWebSocket.onState(data => {
+  LastGlobalStatus = data;
+  try {
+    updateStatus(data);
+  } catch (error) {
+    FanEnabledStatus.textContent = "Indisponible";
+    FanRelayStatus.textContent = "Indisponible";
+    FanCycleStatus.textContent = "Impossible de lire la configuration de la ventilation.";
+    console.error("Erreur de lecture de la configuration de ventilation :", error);
+  }
+});
 updateButtons();
-setInterval(updateStatus, 5000);
 </script>
 
 </body>

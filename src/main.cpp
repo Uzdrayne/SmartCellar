@@ -8,11 +8,12 @@
 #include "Wifi/my_wifi.h"
 #include "Global/Global.h"
 #include "Controller/CaveController.h"
+#include "Alarm/AlertLog.h"
 #include "Alarm/AlertManager.h"
 #include "Alarm/SafetyAlarm.h"
+#include "ServerWeb/WebSocketApi.h"
 #include "SerialLink/SerialLink.h"
 #include "ServerWeb/WebSecurity.h"
-#include "WifiAndMqtt/my_MQTT.h"
 
 void setup()
 {
@@ -21,6 +22,7 @@ void setup()
   Serial.println("SmartCellar READY!");
 
   InitMutex();
+  InitializeAlertLog();
   if (!InitializeWifiIdentity()) {
     Serial.println("[WiFi] Le nom générique sera utilisé pour le SSID et mDNS.");
   }
@@ -48,6 +50,33 @@ void setup()
 }
 
 unsigned long lastPeriodicUpdate  = 0;
+unsigned long lastMemoryReport = 0;
+uint32_t lvglPeakUsed = 0;
+
+void ReportMemoryUsage(unsigned long now) {
+  lv_mem_monitor_t lvglMemory;
+  lv_mem_monitor(&lvglMemory);
+  const uint32_t lvglUsed = lvglMemory.total_size - lvglMemory.free_size;
+  if (lvglUsed > lvglPeakUsed) {
+    lvglPeakUsed = lvglUsed;
+  }
+
+  if (now - lastMemoryReport < 10000) {
+    return;
+  }
+  lastMemoryReport = now;
+
+  Serial.printf(
+      "[MEM] heap libre %u, min %u, bloc max %u | LVGL utilise %u/%u (pic %u, frag %u%%) | WS %u\n",
+      static_cast<unsigned int>(ESP.getFreeHeap()),
+      static_cast<unsigned int>(ESP.getMinFreeHeap()),
+      static_cast<unsigned int>(ESP.getMaxAllocHeap()),
+      static_cast<unsigned int>(lvglUsed),
+      static_cast<unsigned int>(lvglMemory.total_size),
+      static_cast<unsigned int>(lvglPeakUsed),
+      static_cast<unsigned int>(lvglMemory.frag_pct),
+      static_cast<unsigned int>(ws.count()));
+}
 
 
 void loop() {
@@ -65,20 +94,19 @@ void loop() {
     UpdateAlertManager(now);
 
     lastPeriodicUpdate  = now;
-    Get_Json_GlobalStatus(JSON_GLOBAL_STATUS, sizeof(JSON_GLOBAL_STATUS));
+    ProcessWebSocketApi();
 
 
+    // L'état JSON n'est construit que si un client WebSocket est connecté.
     const bool networkAvailable = WifiSTA_OK || (WiFi.getMode() & WIFI_AP);
     if (networkAvailable && !Get_WifiScanning()) {
       SendValueWebSocket();
-      if (WifiSTA_OK && Get_MqttEnable()) {
-        MyMqttLoop();
-      }
     }
 
     ws.cleanupClients();
 
     Handle_Screen_Brightness(now);
+    ReportMemoryUsage(now);
 
   }
 

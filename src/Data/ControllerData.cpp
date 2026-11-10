@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <time.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <ESPAsyncWebServer.h>
 
 #include <HomeAssistantMQTT.h>
@@ -12,6 +14,7 @@
 #include <DNSServer.h>
 
 #include "ControllerData.h"
+#include "Alarm/AlertLog.h"
 #include "Alarm/AlertManager.h"
 #include "Alarm/SafetyAlarm.h"
 #include "Controller/ConfigurationLimits.h"
@@ -86,6 +89,22 @@ void repairBool(const char* key, bool& value, bool defaultValue) {
     }
 }
 
+void formatIpAddress(const IPAddress& address, char (&output)[16]) {
+    snprintf(output, sizeof(output), "%u.%u.%u.%u",
+             address[0], address[1], address[2], address[3]);
+}
+
+// 1er janvier 2024 : toute heure antérieure signifie « NTP pas encore synchronisé ».
+constexpr time_t MinimumValidEpochSeconds = 1704067200;
+
+bool reportSaveResult(bool saved, const char* failureMessage) {
+    if (!saved) {
+        Serial.println(failureMessage);
+        RecordAlertEvent(AlertType::SaveFailed);
+    }
+    return saved;
+}
+
 }
 
 
@@ -100,13 +119,11 @@ HomeAssistantMQTT mqtt;
 
 
 StrctDataController DataController;
+ControllerDebugMessages DataDebugMessages = {};
 StrctDataWifi DataWifi;
 StrctDataMqtt DataMqtt;
 
 
-//String JSON_GLOBAL_STATUS;
-
-char JSON_GLOBAL_STATUS[4096];
 
 
 void InitMutex(){
@@ -203,10 +220,6 @@ void LoadCaveControllerData(StrctDataController &data){
     data.RelayGpioFan = false;
     data.FanPhaseElapsedSeconds = 0;
     data.FanPhaseDurationSeconds = 0;
-    data.ColdDebugMsg[0] = '\0';
-    data.HeatDebugMsg[0] = '\0';
-    data.DehumDebugMsg[0] = '\0';
-    data.HumDebugMsg[0] = '\0';
 
     prefs.begin("MyData",false);
     bool defaultStored = false;
@@ -332,49 +345,7 @@ void LoadCaveControllerData(StrctDataController &data){
     
 }
 
-void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
-    if (buffer == nullptr || maxSize == 0) {
-        Serial.println("[JSON] Buffer d'état invalide");
-        return;
-    }
-
-    //Copy local des struct.
-    StrctDataController LocalData ;
-    StrctDataWifi LocalWifi;
-    StrctDataMqtt LocalMqtt ;
-
-    xSemaphoreTake(DataMutex, portMAX_DELAY);
-    LocalData = DataController ;
-    LocalWifi = DataWifi;
-    LocalMqtt = DataMqtt;
-    xSemaphoreGive(DataMutex);
-
-    const unsigned long snapshotTime = millis();
-    const AlertSnapshot AlertStatus = GetAlertSnapshot();
-    const SafetyAlarmConfiguration AlarmConfiguration =
-        GetSafetyAlarmConfiguration();
-
-    JsonDocument doc;
-    doc["SchemaVersion"] = 1;
-    doc["UptimeMilliseconds"] = snapshotTime;
-
-
-    JsonObject Sensor = doc["Sensor"].to<JsonObject>();
-    Sensor["Temp"] = LocalData.Temperature;
-    Sensor["Hum"]  = LocalData.Humidity;
-    Sensor["TelemetryReceived"] = AlertStatus.NanoTelemetryReceived;
-    Sensor["TelemetryAvailable"] = AlertStatus.TelemetryAvailable;
-    Sensor["MeasurementsUnavailable"] = AlertStatus.MeasurementsUnavailable;
-    Sensor["CorrectedTemp"] = LocalData.Temperature +
-        (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
-    Sensor["CorrectedHum"] = LocalData.Humidity +
-        (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
-
-    JsonObject Consigne = doc["Consigne"].to<JsonObject>();
-    Consigne["SetTemp"] = LocalData.SetTemp;
-    Consigne["SetHum"]  = LocalData.SetHum;  
-
-    JsonObject Limits = doc["Limits"].to<JsonObject>();
+void FillConfigurationLimits(JsonObject Limits) {
     JsonObject Setpoints = Limits["Setpoints"].to<JsonObject>();
     JsonObject TemperatureSetpoint = Setpoints["Temperature"].to<JsonObject>();
     TemperatureSetpoint["Min"] = MinTemperatureSetpointC;
@@ -420,13 +391,49 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     JsonObject AlarmThreshold = Limits["AlarmThresholdC"].to<JsonObject>();
     AlarmThreshold["Min"] = SafetyAlarmThresholdMinC;
     AlarmThreshold["Max"] = SafetyAlarmThresholdMaxC;
+}
+
+void FillGlobalStatus(JsonObject doc) {
+    // Seule la structure du contrÃ´leur est copiÃ©e; les chaÃ®nes Wi-Fi/MQTT
+    // sont Ã©crites directement dans le document sous le mutex.
+    StrctDataController LocalData;
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    LocalData = DataController;
+    xSemaphoreGive(DataMutex);
+
+    const AlertSnapshot AlertStatus = GetAlertSnapshot();
+    const SafetyAlarmConfiguration AlarmConfiguration =
+        GetSafetyAlarmConfiguration();
+
+    doc["SchemaVersion"] = 2;
+    doc["UptimeMilliseconds"] = millis();
+    // Heure NTP (secondes Unix), null tant que l'horloge n'est pas synchronisée.
+    const time_t epochSeconds = time(nullptr);
+    if (epochSeconds > MinimumValidEpochSeconds) {
+        doc["EpochSeconds"] = static_cast<uint32_t>(epochSeconds);
+    } else {
+        doc["EpochSeconds"] = nullptr;
+    }
+
+    JsonObject Sensor = doc["Sensor"].to<JsonObject>();
+    Sensor["Temp"] = LocalData.Temperature;
+    Sensor["Hum"]  = LocalData.Humidity;
+    Sensor["TelemetryReceived"] = AlertStatus.NanoTelemetryReceived;
+    Sensor["TelemetryAvailable"] = AlertStatus.TelemetryAvailable;
+    Sensor["MeasurementsUnavailable"] = AlertStatus.MeasurementsUnavailable;
+    const CorrectedMeasurements corrected = GetCorrectedMeasurements(LocalData);
+    Sensor["CorrectedTemp"] = corrected.Temperature;
+    Sensor["CorrectedHum"] = corrected.Humidity;
+
+    JsonObject Consigne = doc["Consigne"].to<JsonObject>();
+    Consigne["SetTemp"] = LocalData.SetTemp;
+    Consigne["SetHum"]  = LocalData.SetHum;
 
     JsonObject SensorConfig = doc["SensorConfig"].to<JsonObject>();
     SensorConfig["TempOffsetEnabled"] = LocalData.TempOffsetEnabled;
     SensorConfig["TempOffset"] = LocalData.TempOffset;
     SensorConfig["HumOffsetEnabled"] = LocalData.HumOffsetEnabled;
     SensorConfig["HumOffset"] = LocalData.HumOffset;
-
 
     JsonObject State = doc["State"].to<JsonObject>();
     State["StateCold"]  = LocalData.ColdState;
@@ -455,7 +462,6 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     Fan["ElapsedSeconds"] = LocalData.FanPhaseElapsedSeconds;
     Fan["DurationSeconds"] = LocalData.FanPhaseDurationSeconds;
 
-
     JsonObject HardwareCold = doc["HardwareCold"].to<JsonObject>();
     HardwareCold["HysHigh"] = LocalData.ColdHysHigh;
     HardwareCold["HysLow"] = LocalData.ColdHysLow;
@@ -481,10 +487,6 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     HardwareHum["DelayMinOff"] = LocalData.HumDelayMinOff;
 
     JsonObject DebugMsg = doc["DebugMsg"].to<JsonObject>();
-    DebugMsg["ColdDebugMsg"]  = LocalData.ColdDebugMsg;
-    DebugMsg["HeatDebugMsg"]  = LocalData.HeatDebugMsg;
-    DebugMsg["DehumDebugMsg"] = LocalData.DehumDebugMsg;
-    DebugMsg["HumDebugMsg"]   = LocalData.HumDebugMsg;
 
     JsonObject Alerts = doc["Alerts"].to<JsonObject>();
     Alerts["Active"] = AlertStatus.AnyAlertActive;
@@ -511,138 +513,132 @@ void Get_Json_GlobalStatus(char* buffer, size_t maxSize){
     }
 
     JsonArray ActiveReasons = Alerts["ActiveReasons"].to<JsonArray>();
-    if (AlertStatus.NanoLinkLost) {
-        ActiveReasons.add("nano_link_lost");
-    } else if (AlertStatus.MeasurementsUnavailable) {
-        ActiveReasons.add("measurements_unavailable");
+    AlertType activeTypes[AlertTypeCount];
+    const size_t activeCount =
+        GetActiveAlertTypes(AlertStatus, activeTypes, AlertTypeCount);
+    for (size_t i = 0; i < activeCount; ++i) {
+        ActiveReasons.add(GetAlertTypeCode(activeTypes[i]));
     }
-    if (AlertStatus.HighTemperatureActive) {
-        ActiveReasons.add("high_temperature");
-    }
-    if (AlertStatus.NanoFallback) {
-        ActiveReasons.add("nano_fallback");
-    }
-    if (AlertStatus.WifiDisconnected) {
-        ActiveReasons.add("wifi_disconnected");
-    }
-    if (AlertStatus.MqttDisconnected) {
-        ActiveReasons.add("mqtt_disconnected");
-    }
+    Alerts["LogRevision"] = GetAlertLogRevision();
 
-    bool Connected = WiFi.status() == WL_CONNECTED;
-    String Ssid = WiFi.SSID();
-    int Rssi = WiFi.RSSI();
-    String Ip = WiFi.localIP().toString();
+    const bool Connected = WiFi.status() == WL_CONNECTED;
     const bool accessPointEnabled = (WiFi.getMode() & WIFI_AP) != 0;
-    const String accessPointIp = accessPointEnabled
-        ? WiFi.softAPIP().toString()
-        : String();
+    char ip[16];
+    formatIpAddress(Connected ? WiFi.localIP() : IPAddress(0, 0, 0, 0), ip);
+    char accessPointIp[16] = "";
+    if (accessPointEnabled) {
+        formatIpAddress(WiFi.softAPIP(), accessPointIp);
+    }
+    char mdnsHostname[48];
+    snprintf(mdnsHostname, sizeof(mdnsHostname), "%s.local", APSsid.c_str());
+
+    wifi_ap_record_t accessPointInfo = {};
+    const bool apInfoAvailable =
+        Connected && esp_wifi_sta_get_ap_info(&accessPointInfo) == ESP_OK;
 
     JsonObject Wifi = doc["Wifi"].to<JsonObject>();
     Wifi["Connected"] = Connected;
     Wifi["StaConnected"] = Connected;
-    Wifi["Ssid"]      = Ssid;
-    Wifi["ConfiguredSsid"] = LocalWifi.WifiSsid;
-    Wifi["Rssi"]      = Rssi;
-    Wifi["Ip"]        = Ip;
-    Wifi["IsSTA"] = LocalWifi.WifiIsSTA;
-    Wifi["Scanning"] = LocalWifi.WifiScanning;
+    Wifi["Ssid"] = apInfoAvailable
+        ? reinterpret_cast<const char*>(accessPointInfo.ssid)
+        : "";
+    Wifi["Rssi"] = apInfoAvailable ? accessPointInfo.rssi : 0;
+    Wifi["Ip"] = static_cast<const char*>(ip);
     Wifi["AccessPointEnabled"] = accessPointEnabled;
     Wifi["AccessPointSsid"] = accessPointEnabled ? APSsid.c_str() : "";
-    Wifi["AccessPointIp"] = accessPointIp;
-    Wifi["MdnsHostname"] = APSsid + ".local";
-
+    Wifi["AccessPointIp"] = static_cast<const char*>(accessPointIp);
+    Wifi["MdnsHostname"] = static_cast<const char*>(mdnsHostname);
 
     JsonObject Mqtt = doc["Mqtt"].to<JsonObject>();
-    Mqtt["MqttEnable"] = LocalMqtt.MqttEnable;
-    Mqtt["mqtt_server"] = LocalMqtt.MqttServer;
-    Mqtt["mqtt_server_port"] = LocalMqtt.MqttPort;
-    Mqtt["MQTTUSER"] = LocalMqtt.MqttUser;
-    Mqtt["NAME"] = LocalMqtt.MqttDeviceName;
-    Mqtt["Manufacturer"] = LocalMqtt.MqttManu;
-    Mqtt["Model"] = LocalMqtt.MqttModel;
-    Mqtt["Version"] = LocalMqtt.MqttVersion;
-    Mqtt["Connected"] = LocalMqtt.MqttConnected;
-
-
-    const size_t requiredSize = measureJson(doc);
-    if (requiredSize >= maxSize) {
-        xSemaphoreTake(DataMutex, portMAX_DELAY);
-        buffer[0] = '\0';
-        xSemaphoreGive(DataMutex);
-        Serial.printf(
-            "[JSON] Buffer d'état trop petit: %u octets requis, %u disponibles\n",
-            static_cast<unsigned int>(requiredSize),
-            static_cast<unsigned int>(maxSize));
-        return;
-    }
 
     xSemaphoreTake(DataMutex, portMAX_DELAY);
-    const size_t n = serializeJson(doc, buffer, maxSize);
+    DebugMsg["ColdDebugMsg"]  = static_cast<const char*>(DataDebugMessages.Cold);
+    DebugMsg["HeatDebugMsg"]  = static_cast<const char*>(DataDebugMessages.Heat);
+    DebugMsg["DehumDebugMsg"] = static_cast<const char*>(DataDebugMessages.Dehum);
+    DebugMsg["HumDebugMsg"]   = static_cast<const char*>(DataDebugMessages.Hum);
+    Wifi["ConfiguredSsid"] = DataWifi.WifiSsid.c_str();
+    Wifi["IsSTA"] = DataWifi.WifiIsSTA;
+    Wifi["Scanning"] = DataWifi.WifiScanning;
+    Mqtt["MqttEnable"] = DataMqtt.MqttEnable;
+    Mqtt["mqtt_server"] = DataMqtt.MqttServer.c_str();
+    Mqtt["mqtt_server_port"] = DataMqtt.MqttPort;
+    Mqtt["MQTTUSER"] = DataMqtt.MqttUser.c_str();
+    Mqtt["NAME"] = DataMqtt.MqttDeviceName.c_str();
+    Mqtt["Manufacturer"] = DataMqtt.MqttManu.c_str();
+    Mqtt["Model"] = DataMqtt.MqttModel.c_str();
+    Mqtt["Version"] = DataMqtt.MqttVersion.c_str();
+    Mqtt["Connected"] = DataMqtt.MqttConnected;
     xSemaphoreGive(DataMutex);
-
-   // Serial.println("--- Rapport de Taille JSON ---");
-   // Serial.printf("Octets écrits : %u / %u\n", n, maxSize);
-
-    // Si n est égal à maxSize - 1, c'est que le JSON a probablement été coupé !
-    if (n != requiredSize) {
-        xSemaphoreTake(DataMutex, portMAX_DELAY);
-        buffer[0] = '\0';
-        xSemaphoreGive(DataMutex);
-        Serial.println("⚠️ ALERTE : Le buffer est TROP PETIT, le JSON est tronqué !");
-    }
-
-    // Optionnel : mesurer combien d'espace le document occupe en mémoire RAM
-   // Serial.printf("Mémoire document JSON : %u octets\n", doc.memoryUsage());
-
 }
 
 
 
-bool Save_SetTemp_and_SetHum(){
+bool Save_SetTemp(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour les consignes.");
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour SetTemp.");
+    }
+    const bool saved =
+        prefs.putFloat("SetTemp", DataController.SetTemp) == sizeof(DataController.SetTemp);
+    prefs.end();
+    xSemaphoreGive(DataMutex);  
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement de SetTemp.");
+}
+
+bool Save_SetHum(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);  
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour SetHum.");
+    }
+    const bool saved =
+        prefs.putFloat("SetHum", DataController.SetHum) == sizeof(DataController.SetHum);
+    prefs.end();
+    xSemaphoreGive(DataMutex);  
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement de SetHum.");
+}
+
+bool Save_Wifi_Parameters(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    if (!prefs.begin("MyWifi", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Impossible d'ouvrir MyWifi pour les paramètres Wi-Fi.");
         return false;
     }
-    bool saved = true;
-    if (prefs.putFloat("SetTemp", DataController.SetTemp) != sizeof(DataController.SetTemp)) saved = false;
-    if (prefs.putFloat("SetHum", DataController.SetHum) != sizeof(DataController.SetHum)) saved = false;
+    bool saved =
+        prefs.putString("Ssid", DataWifi.WifiSsid) == DataWifi.WifiSsid.length();
+    if (prefs.putString("Pass", DataWifi.WifiPass) != DataWifi.WifiPass.length()) {
+        saved = false;
+    }
     prefs.end();
-    xSemaphoreGive(DataMutex);  
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement des consignes.");
-    return saved;
+    xSemaphoreGive(DataMutex);
+    return reportSaveResult(saved, "[NVS] Échec d'enregistrement des paramètres Wi-Fi.");
 }
 
-void Save_Wifi_Parameters(){
-    xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyWifi", false);
-    prefs.putString("Ssid", DataWifi.WifiSsid);
-    prefs.putString("Pass", DataWifi.WifiPass);
-    prefs.end();
-    xSemaphoreGive(DataMutex);  
-}
-
-void Save_Mqtt_Parameters(){
-    xSemaphoreTake(DataMutex, portMAX_DELAY);  
-    prefs.begin("MyMqtt", false);
-    prefs.putBool("MqttEnable",    DataMqtt.MqttEnable);
-    prefs.putString("MqttServer", DataMqtt.MqttServer);         // MQTT Server URL
-    prefs.putUInt("MqttPort", DataMqtt.MqttPort);// MQTT Server port
-    prefs.putString("MqttUser", DataMqtt.MqttUser);             // MQTT Username
-    prefs.putString("MqttPass", DataMqtt.MqttPassword);         //MQTT Password
-    prefs.putString("MqttName", DataMqtt.MqttDeviceName);               // Device name in Home Assistant
+bool Save_Mqtt_Parameters(){
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    if (!prefs.begin("MyMqtt", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Impossible d'ouvrir MyMqtt pour les paramètres MQTT.");
+        return false;
+    }
+    bool saved = prefs.putBool("MqttEnable", DataMqtt.MqttEnable) == sizeof(bool);
+    if (prefs.putString("MqttServer", DataMqtt.MqttServer) != DataMqtt.MqttServer.length()) saved = false;
+    if (prefs.putUInt("MqttPort", DataMqtt.MqttPort) != sizeof(uint32_t)) saved = false;
+    if (prefs.putString("MqttUser", DataMqtt.MqttUser) != DataMqtt.MqttUser.length()) saved = false;
+    if (prefs.putString("MqttPass", DataMqtt.MqttPassword) != DataMqtt.MqttPassword.length()) saved = false;
+    if (prefs.putString("MqttName", DataMqtt.MqttDeviceName) != DataMqtt.MqttDeviceName.length()) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
+    return reportSaveResult(saved, "[NVS] Échec d'enregistrement des paramètres MQTT.");
 }
 
 bool Save_SensorOffset(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour la calibration.");
-        return false;
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour la calibration.");
     }
     bool saved = true;
     if (prefs.putBool("TempOffsetEn", DataController.TempOffsetEnabled) != sizeof(DataController.TempOffsetEnabled)) saved = false;
@@ -651,16 +647,14 @@ bool Save_SensorOffset(){
     if (prefs.putFloat("HumOffset", DataController.HumOffset) != sizeof(DataController.HumOffset)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement de la calibration.");
-    return saved;
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement de la calibration.");
 }
 
 bool Save_ColdHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour le froid.");
-        return false;
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour le froid.");
     }
     bool saved = true;
     if (prefs.putFloat("ColdHysH", DataController.ColdHysHigh) != sizeof(DataController.ColdHysHigh)) saved = false;
@@ -669,15 +663,13 @@ bool Save_ColdHardware(){
     if (prefs.putUInt("ColdMinOff", DataController.ColdDelayMinOff) != sizeof(DataController.ColdDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres froid.");
-    return saved;
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement des paramètres froid.");
 }
 bool Save_HeatHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour le chauffage.");
-        return false;
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour le chauffage.");
     }
     bool saved = true;
     if (prefs.putFloat("HeatHysH", DataController.HeatHysHigh) != sizeof(DataController.HeatHysHigh)) saved = false;
@@ -686,15 +678,13 @@ bool Save_HeatHardware(){
     if (prefs.putUInt("HeatMinOff", DataController.HeatDelayMinOff) != sizeof(DataController.HeatDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres chauffage.");
-    return saved;
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement des paramètres chauffage.");
 }
 bool Save_DehumHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour la deshumidification.");
-        return false;
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour la deshumidification.");
     }
     bool saved = true;
     if (prefs.putFloat("DehumHysH", DataController.DehumHysHigh) != sizeof(DataController.DehumHysHigh)) saved = false;
@@ -703,15 +693,13 @@ bool Save_DehumHardware(){
     if (prefs.putUInt("DehumMinOff", DataController.DehumDelayMinOff) != sizeof(DataController.DehumDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres deshumidification.");
-    return saved;
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement des paramètres deshumidification.");
 }
 bool Save_HumHardware(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);  
     if (!prefs.begin("MyData", false)) {
         xSemaphoreGive(DataMutex);
-        Serial.println("[NVS] Echec d'ouverture de MyData pour l'humidification.");
-        return false;
+        return reportSaveResult(false, "[NVS] Echec d'ouverture de MyData pour l'humidification.");
     }
     bool saved = true;
     if (prefs.putFloat("HumHysH", DataController.HumHysHigh) != sizeof(DataController.HumHysHigh)) saved = false;
@@ -720,16 +708,20 @@ bool Save_HumHardware(){
     if (prefs.putUInt("HumMinOff", DataController.HumDelayMinOff) != sizeof(DataController.HumDelayMinOff)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex); 
-    if (!saved) Serial.println("[NVS] Echec d'enregistrement des paramètres humidification.");
-    return saved;
+    return reportSaveResult(saved, "[NVS] Echec d'enregistrement des paramètres humidification.");
 }
 
-void Save_FanSettings(){
+bool Save_FanSettings(){
     xSemaphoreTake(DataMutex, portMAX_DELAY);
-    prefs.begin("MyData", false);
-    prefs.putBool("FanEnabled", DataController.FanEnabled);
-    prefs.putUInt("FanOnMin", DataController.FanOnMinutes);
-    prefs.putUInt("FanOffMin", DataController.FanOffMinutes);
+    if (!prefs.begin("MyData", false)) {
+        xSemaphoreGive(DataMutex);
+        Serial.println("[NVS] Impossible d'ouvrir MyData pour la ventilation.");
+        return false;
+    }
+    bool saved = prefs.putBool("FanEnabled", DataController.FanEnabled) == sizeof(bool);
+    if (prefs.putUInt("FanOnMin", DataController.FanOnMinutes) != sizeof(unsigned int)) saved = false;
+    if (prefs.putUInt("FanOffMin", DataController.FanOffMinutes) != sizeof(unsigned int)) saved = false;
     prefs.end();
     xSemaphoreGive(DataMutex);
+    return reportSaveResult(saved, "[NVS] Échec d'enregistrement des paramètres de ventilation.");
 }

@@ -131,3 +131,26 @@ bool IsValidControllerConfiguration(const StrctDataController& data) {
         IsValidTemperatureRelaySettings(data) &&
         IsValidHumidityRelaySettings(data);
 }
+
+bool IsMeasuredTemperatureInRange(float value) {
+    return isfinite(value) && value >= MinMeasuredTemperatureC &&
+           value <= MaxMeasuredTemperatureC;
+}
+
+bool IsMeasuredHumidityInRange(float value) {
+    return isfinite(value) && value >= MinMeasuredHumidityPercent &&
+           value <= MaxMeasuredHumidityPercent;
+}
+
+CorrectedMeasurements GetCorrectedMeasurements(const StrctDataController& data) {
+    CorrectedMeasurements result;
+    result.Temperature = data.Temperature +
+        (data.TempOffsetEnabled ? data.TempOffset : 0.0f);
+    result.Humidity = data.Humidity +
+        (data.HumOffsetEnabled ? data.HumOffset : 0.0f);
+    result.TemperatureValid = isfinite(data.Temperature) &&
+        IsMeasuredTemperatureInRange(result.Temperature);
+    result.HumidityValid = isfinite(data.Humidity) &&
+        IsMeasuredHumidityInRange(result.Humidity);
+    return result;
+}

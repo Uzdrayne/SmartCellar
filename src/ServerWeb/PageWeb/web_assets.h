@@ -43,6 +43,8 @@ namespace WEB {
   extern const size_t Mqtt_html_len;
   extern const uint8_t style_css[] WEB_STORAGE_ATTR;
   extern const size_t style_css_len;
+  extern const uint8_t WebSocketClient_js[] WEB_STORAGE_ATTR;
+  extern const size_t WebSocketClient_js_len;
   extern const uint8_t Wifi_html[] WEB_STORAGE_ATTR;
   extern const size_t Wifi_html_len;
 } // namespace WEB

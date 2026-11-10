@@ -14,6 +14,12 @@
   <span id="ws-status">Déconnecté</span>
 </div>
 
+<div class="card alert-log-card" id="AlertLogCard" hidden>
+  <h3>🚨 Journal des alertes</h3>
+  <ul id="AlertLogList" class="alert-log-list"></ul>
+  <button type="button" id="AlertLogClearBtn" class="btn btn-gray" onclick="ClearAlertLog()">🧹 Effacer les alertes terminées</button>
+</div>
+
 <div class="card">
 
   <div class="card">
@@ -223,6 +229,7 @@
 
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script src="/Menu.js"></script>
 
 </body>

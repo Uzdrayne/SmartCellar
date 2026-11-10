@@ -9,6 +9,8 @@
 
 
 void set_switch_state(lv_obj_t* sw, bool on);
+void SetLabelTextIfChanged(lv_obj_t* label, const char* text);
+void SetImgButtonEnabled(lv_obj_t* button, bool enabled);
 StrctDataController GetControllerSnapshot();
 bool HasValidControllerMeasurements(const StrctDataController& data);
 lv_obj_t* CreateSensorFaultBanner(lv_obj_t* parent);

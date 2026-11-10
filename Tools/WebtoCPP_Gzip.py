@@ -421,6 +421,7 @@ def generate_ASSETS_CPP(sources: List[pathlib.Path]) -> str:
                 f'  server.on("{url}", HTTP_GET, [](AsyncWebServerRequest *request){{\n'
                 f'    AsyncWebServerResponse *response = request->beginResponse(200, "{mime}", WEB::{data}, WEB::{length});\n'
                 f'    response->addHeader("Content-Encoding", "gzip");\n'
+                f'    response->addHeader("Cache-Control", "no-store");\n'
                 f'    request->send(response);\n'
                 f'  }});\n'
             )

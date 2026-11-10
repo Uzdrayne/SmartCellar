@@ -10,6 +10,7 @@
 #include "Global/Global.h"
 #include "ServerWeb/WebHandlers.h"
 #include "ServerWeb/WebSecurity.h"
+#include "ServerWeb/WebSocketApi.h"
 #include "WifiAndMqtt/my_MQTT.h"
 
 String APSsid = "SmartCellar";
@@ -50,8 +51,7 @@ unsigned long lastWebSocketSend = 0;
 void startNetworkServices() {
     if (!webServicesStarted) {
         Set_WebSocket();
-        setupWebHandlers();
-        webServicesStarted = true;
+        webServicesStarted = setupWebHandlers();
     }
 
     Gestion_DNS_mDNS();
@@ -65,6 +65,7 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
     } else if (type == WS_EVT_DISCONNECT) {
         Serial.printf("[WS] Client %u déconnecté\n", client->id());
     }
+    HandleWebSocketApiEvent(server, client, type, arg, data, len);
 }
 
 void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
@@ -210,13 +211,14 @@ void Set_WebSocket() {
 
 void SendValueWebSocket() {
     const unsigned long now = millis();
-    if (now - lastWebSocketSend < 1000 || ws.count() == 0) {
+    const bool stateRequested = TakeWebSocketStateRequest();
+    if (ws.count() == 0) {
+        return;
+    }
+    if (!stateRequested && now - lastWebSocketSend < 1000) {
         return;
     }
 
     lastWebSocketSend = now;
-    if (xSemaphoreTake(DataMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        ws.textAll(JSON_GLOBAL_STATUS);
-        xSemaphoreGive(DataMutex);
-    }
+    SendWebSocketStateToAll();
 }

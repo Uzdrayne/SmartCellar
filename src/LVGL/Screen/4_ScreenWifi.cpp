@@ -45,17 +45,6 @@ bool accessPointEnabled = false;
 
 const char* AdminResetMessageBoxButtons[] = {"Oui", "Non", ""};
 
-void setLabelTextIfChanged(lv_obj_t* label, const char* text) {
-    if (label == nullptr) {
-        return;
-    }
-
-    const char* currentText = lv_label_get_text(label);
-    if (currentText == nullptr || strcmp(currentText, text) != 0) {
-        lv_label_set_text(label, text);
-    }
-}
-
 void formatIpAddress(char* text, size_t textSize, const IPAddress& ip) {
     snprintf(text, textSize, "%u.%u.%u.%u",
              static_cast<unsigned int>(ip[0]),
@@ -137,11 +126,10 @@ void Refresh_ScreenWifi() {
     }
 
 
-    lv_label_set_text(ui_WifiLabelApSsid,APSsid.c_str()); //SSID
-    lv_label_set_text(ui_WifiLabelApPass,APPass.c_str()); //Password
-    lv_label_set_text(ui_WifiLabelApIP,apIpText); //IP
-
-    lv_label_set_text(ui_WifiLabelLocalIp, localIpText); //Local IP
+    SetLabelTextIfChanged(ui_WifiLabelApSsid, APSsid.c_str());
+    SetLabelTextIfChanged(ui_WifiLabelApPass, APPass.c_str());
+    SetLabelTextIfChanged(ui_WifiLabelApIP, apIpText);
+    SetLabelTextIfChanged(ui_WifiLabelLocalIp, localIpText);
 
     if (adminResetFeedback == AdminResetFeedback::Succeeded &&
         HasWebAdminCredential()) {
@@ -149,19 +137,19 @@ void Refresh_ScreenWifi() {
     }
 
     if (adminResetFeedback == AdminResetFeedback::None) {
-        setLabelTextIfChanged(
+        SetLabelTextIfChanged(
             ui_WifiLabelBtnReset,
             HasWebAdminCredential()
                 ? "Reset Mdp"
                 : "Config via AP"
         );
     } else if (adminResetFeedback == AdminResetFeedback::Succeeded) {
-        setLabelTextIfChanged(
+        SetLabelTextIfChanged(
             ui_WifiLabelBtnReset,
             "Config via AP"
         );
     } else {
-        setLabelTextIfChanged(
+        SetLabelTextIfChanged(
             ui_WifiLabelBtnReset,
             "Reset Erreur"
         );
@@ -193,8 +181,6 @@ void WifiSwitchAPEnableClicked(lv_event_t * e){
     } else {
         Serial.println("désactivation du mode AP");
         ConnectToWifi();
-        //lv_obj_set_style_text_color(ui_LabelWifiApEnabled, lv_color_make(200, 0, 0),0);
-       // lv_label_set_text(ui_LabelWifiApEnabled,"OFF");
     }
 
     Refresh_ScreenWifi();

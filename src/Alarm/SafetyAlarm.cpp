@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <math.h>
 
+#include "Controller/ControllerValidation.h"
 #include "Data/ControllerData.h"
 #include "SerialLink/SerialLink.h"
 
@@ -134,15 +135,11 @@ void UpdateSafetyAlarm(unsigned long now) {
     const SerialLinkSnapshot linkStatus = GetSerialLinkSnapshot(now);
 
     xSemaphoreTake(DataMutex, portMAX_DELAY);
-    const float correctedTemperature =
-        DataController.Temperature +
-        (DataController.TempOffsetEnabled ? DataController.TempOffset : 0.0f);
+    const CorrectedMeasurements measurements =
+        GetCorrectedMeasurements(DataController);
+    const float correctedTemperature = measurements.Temperature;
     const bool correctedTemperatureValid =
-        linkStatus.measurementAvailable &&
-        isfinite(DataController.Temperature) &&
-        isfinite(correctedTemperature) &&
-        correctedTemperature >= -40.0f &&
-        correctedTemperature <= 80.0f;
+        linkStatus.measurementAvailable && measurements.TemperatureValid;
 
     if (correctedTemperatureValid &&
         correctedTemperature > alarmConfiguration.HighTemperatureThresholdC) {

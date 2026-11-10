@@ -1,5 +1,6 @@
 let UserCalibChanged = false;
 let CurrentLimits = null;
+let LastGlobalStatus = null;
 
 const TempCheckbox = document.getElementById("EnableTempOffset");
 const TempInput    = document.getElementById("TempOffset");
@@ -30,11 +31,10 @@ HumInput.addEventListener("input", () => {
 
 
 
-function UpdateStatus() {
-    fetch("/GlobalStatus").then(r => {
-        if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
-        return r.json();
-    }).then(d => {
+function UpdateStatus(d) {
+    if (d) LastGlobalStatus = d;
+    else d = LastGlobalStatus;
+    if (!d) return;
         CurrentLimits = d.Limits && d.Limits.SensorOffset;
         applyNumericLimits(TempInput, CurrentLimits && CurrentLimits.Temperature);
         applyNumericLimits(HumInput, CurrentLimits && CurrentLimits.Humidity);
@@ -61,9 +61,6 @@ function UpdateStatus() {
         //griser les boutons quand pas utile
         document.getElementById("CancelBtnCalib").disabled = !UserCalibChanged; 
         document.getElementById("SaveBtnCalib").disabled = !UserCalibChanged; 
-    }).catch(error => {
-        console.error("Erreur de lecture de la configuration du capteur :", error);
-    });
 }
 
 
@@ -91,24 +88,15 @@ function SaveCapteurCalibration() {
     return;
   }
 
-  // Préparation des données pour POST
-  const bodyData = `TempEnabled=${TempEnabled}&TempValue=${TempValue}&HumEnabled=${HumEnabled}&HumValue=${HumValue}`;
-
-  // Envoi vers le serveur en POST
-  fetch("/SaveCapteurCalibration", {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: bodyData
+  SmartCellarWebSocket.request("saveSensorCalibration", {
+    tempEnabled: Boolean(TempEnabled),
+    tempOffset: TempValue,
+    humEnabled: Boolean(HumEnabled),
+    humOffset: HumValue
   })
-  .then(async r => {
-    const text = await r.text();
-    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-    return text;
-  })
-  .then(txt => {
-    alert(txt);
-
-    // Mise à jour graphique
+  .then(result => {
+    if (!result.persisted) throw new Error("La calibration n'a pas été enregistrée.");
+    alert("Calibration enregistrée.");
     UserCalibChanged = false;
     UpdateStatus();
   })
@@ -125,5 +113,4 @@ function UndoChangesCalib() {
 
 
 
-setInterval(UpdateStatus,1000);
-UpdateStatus();
+SmartCellarWebSocket.onState(UpdateStatus);

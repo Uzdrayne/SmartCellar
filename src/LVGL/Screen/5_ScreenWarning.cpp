@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 #include <ui.h>
+#include "Alarm/AlertLog.h"
 #include "Alarm/AlertManager.h"
 #include "Global/Global.h"
 #include "LVGL/Lvgl_Global.h"
@@ -32,12 +33,6 @@ bool previousPrimaryAlertActive = false;
 bool warningIconChecked = false;
 unsigned long warningIconLastToggle = 0;
 
-void setLabelTextIfChanged(lv_obj_t* label, const char* text) {
-    if (label != nullptr && strcmp(lv_label_get_text(label), text) != 0) {
-        lv_label_set_text(label, text);
-    }
-}
-
 void appendReasonLine(char* text, const size_t textSize, size_t& lineCount,const char* reason) {
                       
     if (lineCount >= 3) {
@@ -52,22 +47,6 @@ void appendReasonLine(char* text, const size_t textSize, size_t& lineCount,const
     snprintf(text + textLength, textSize - textLength, "%s%s",
              textLength == 0 ? "" : "\n", reason);
     ++lineCount;
-}
-
-const char* getPrimaryAlertReasonText(const PrimaryAlertReason reason) {
-    switch (reason) {
-        case PrimaryAlertReason::NanoLinkLost:
-            return "Liaison avec le Nano perdue";
-        case PrimaryAlertReason::MeasurementsUnavailable:
-            return "Mesures indisponibles";
-        case PrimaryAlertReason::HighTemperature:
-            return "Temperature trop elevee";
-        case PrimaryAlertReason::NanoFallback:
-            return "Mode secours du Nano";
-        case PrimaryAlertReason::None:
-        default:
-            return nullptr;
-    }
 }
 
 void navigateToWarningScreen() {
@@ -95,48 +74,33 @@ void Refresh_ScreenWarning() {
     const unsigned long now = millis();
     const AlertSnapshot status = GetAlertSnapshot();
 
-    setLabelTextIfChanged(
+    SetLabelTextIfChanged(
         ui_WarningLabelAlerte,
         status.AnyAlertActive ? "Alerte !" : "Normal"
     );
 
     char reasonText[128] = {};
     size_t reasonLineCount = 0;
-    if (status.NanoLinkLost) {
+    AlertType activeTypes[AlertTypeCount];
+    const size_t activeCount =
+        GetActiveAlertTypes(status, activeTypes, AlertTypeCount);
+    for (size_t i = 0; i < activeCount; ++i) {
         appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "Liaison avec le Nano perdue");
-    } else if (status.MeasurementsUnavailable) {
-        appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "Mesures indisponibles");
-    }
-    if (status.HighTemperatureActive) {
-        appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "Temperature trop elevee");
-    }
-    if (status.NanoFallback) {
-        appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "Mode secours du Nano");
-    }
-    if (status.WifiDisconnected) {
-        appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "Wi-Fi indisponible");
-    }
-    if (status.MqttDisconnected) {
-        appendReasonLine(reasonText, sizeof(reasonText), reasonLineCount,
-                         "MQTT indisponible");
+                         GetAlertTypeLabel(activeTypes[i]));
     }
     if (reasonText[0] == '\0') {
+        AlertType lastAlert;
         if (status.AnyAlertActive) {
             snprintf(reasonText, sizeof(reasonText), "Aucune alerte active");
-        } else if (getPrimaryAlertReasonText(status.LastPrimaryAlertReason) != nullptr) {
+        } else if (GetLastEndedPrimaryAlert(lastAlert)) {
             snprintf(reasonText, sizeof(reasonText),
                      "Retour a la normale\nDerniere alerte :\n%s",
-                     getPrimaryAlertReasonText(status.LastPrimaryAlertReason));
+                     GetAlertTypeLabel(lastAlert));
         } else {
             snprintf(reasonText, sizeof(reasonText), "Retour a la normale");
         }
     }
-    setLabelTextIfChanged(ui_WarningLabelReason, reasonText);
+    SetLabelTextIfChanged(ui_WarningLabelReason, reasonText);
 
     char measurementText[48];
     char ageText[40];
@@ -154,8 +118,8 @@ void Refresh_ScreenWarning() {
         snprintf(measurementText, sizeof(measurementText), "Aucune mesure connue");
         snprintf(ageText, sizeof(ageText), "En attente de donnees");
     }
-    setLabelTextIfChanged(ui_WarningLabellastMeasure, measurementText);
-    setLabelTextIfChanged(ui_WarningLabelLastTime, ageText);
+    SetLabelTextIfChanged(ui_WarningLabellastMeasure, measurementText);
+    SetLabelTextIfChanged(ui_WarningLabelLastTime, ageText);
 
     if (!status.AnyAlertActive) {
         warningIconChecked = false;

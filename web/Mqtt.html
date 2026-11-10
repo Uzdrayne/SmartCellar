@@ -10,7 +10,7 @@
 
 <h2>⚙️ Paramètres MQTT</h2>
 
-<div class="card">
+<form class="card" id="MqttForm" autocomplete="off" onsubmit="event.preventDefault(); SaveMQTT();">
 
     <p>
     <label>Activer MQTT :</label>
@@ -21,7 +21,8 @@
 
     <p>
     <label>Serveur MQTT :</label><br>
-        <input type="text" id="MqttServer" placeholder="mqtt://server">
+        <input type="text" id="MqttServer" placeholder="192.168.1.10">
+        <small>Nom d’hôte ou adresse IP du broker, sans préfixe mqtt://.</small>
     </p>
 
     <p>
@@ -31,12 +32,12 @@
 
     <p>
     <label>Nom d'utilisateur :</label><br>
-        <input type="text" id="MqttUser" placeholder="MQTT Username">
+        <input type="text" id="MqttUser" placeholder="MQTT Username" autocomplete="off">
     </p>
 
     <p>
     <label>Mot de passe :</label><br>
-        <input type="password" id="MqttPassword" placeholder="Laisser vide pour conserver">
+        <input type="password" id="MqttPassword" placeholder="Laisser vide pour conserver" autocomplete="new-password">
         <small>Le mot de passe enregistré n’est jamais renvoyé par le serveur.</small>
     </p>
 
@@ -55,11 +56,11 @@
     </p>
 
     <div>
-        <button id="SaveBtn" class="btn btn-green" onclick="SaveMQTT()">💾 Enregistrer</button>
-        <button id="CancelBtn" class="btn btn-gray" onclick="UndoMQTT()">↩️ Annuler</button>
+        <button type="submit" id="SaveBtn" class="btn btn-green">💾 Enregistrer</button>
+        <button type="button" id="CancelBtn" class="btn btn-gray" onclick="UndoMQTT()">↩️ Annuler</button>
     </div>
 
-</div>
+</form>
 
 <div class="card">
   <h3>📡 État de la connexion</h3>
@@ -77,6 +78,7 @@
 </div>
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script>
 const MqttEnable   = document.getElementById("MqttEnable");
 const MqttServer   = document.getElementById("MqttServer");
@@ -100,31 +102,31 @@ let mqttPortLimits = null;
 });
 
 // Charger les valeurs depuis le ESP32
-function LoadMQTT() {
-  fetch("/GlobalStatus").then(r => {
-    if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
-    return r.json();
-  }).then(d => {
+let LastGlobalStatus = null;
+function LoadMQTT(d) {
+  if (d) LastGlobalStatus = d;
+  else d = LastGlobalStatus;
+  if (!d) return;
     mqttPortLimits = d.Limits && d.Limits.MqttPort;
     applyNumericLimits(MqttPort, mqttPortLimits);
 
-    MqttEnable.checked   = d.Mqtt.MqttEnable;
-    MqttServer.value     = d.Mqtt.mqtt_server;
-    MqttPort.value       = d.Mqtt.mqtt_server_port;
-    MqttUser.value       = d.Mqtt.MQTTUSER;
-    MqttPassword.value   = "";
-    ClearMqttPassword.checked = false;
-    MqttName.value       = d.Mqtt.NAME;
+    if (!UserChanged) {
+      MqttEnable.checked   = d.Mqtt.MqttEnable;
+      MqttServer.value     = d.Mqtt.mqtt_server;
+      MqttPort.value       = d.Mqtt.mqtt_server_port;
+      MqttUser.value       = d.Mqtt.MQTTUSER;
+      MqttPassword.value   = "";
+      ClearMqttPassword.checked = false;
+      MqttName.value       = d.Mqtt.NAME;
+    }
 
     MqttConnected.innerText = d.Mqtt.Connected ? "Connecté" : "Non connecté";
     MqttConnected.style.color = d.Mqtt.Connected ? "green" : "red";
 
-    UserChanged = false;
-    SaveBtn.disabled = !UserChanged;
-    CancelBtn.disabled = !UserChanged;
-  }).catch(error => {
-    console.error("Erreur de lecture de la configuration MQTT :", error);
-  });
+    if (!UserChanged) {
+      SaveBtn.disabled = true;
+      CancelBtn.disabled = true;
+    }
 }
 
 
@@ -140,39 +142,24 @@ function SaveMQTT() {
     return;
   }
 
-  // Préparation des données
-  const params = new URLSearchParams();
-  params.append("MqttEnable", MqttEnable.checked ? 1 : 0);
-  params.append("mqtt_server", MqttServer.value);
-  params.append("mqtt_port", MqttPort.value);
-  params.append("MQTTUSER", MqttUser.value);
-  params.append("MQTTPASSWORD", MqttPassword.value);
-  params.append("ClearMqttPassword", ClearMqttPassword.checked ? "1" : "0");
-  params.append("NAME", MqttName.value);
+  const payload = {
+    enabled: MqttEnable.checked,
+    server: MqttServer.value,
+    port: mqttPort,
+    user: MqttUser.value,
+    deviceName: MqttName.value,
+    clearPassword: ClearMqttPassword.checked
+  };
+  if (MqttPassword.value) payload.password = MqttPassword.value;
 
-  // Envoi via fetch en méthode POST
-  fetch("/SaveMqtt", {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: params.toString()
-  })
-  .then(async response => {
-    const txt = await response.text();
-    if (!response.ok) {
-      throw new Error(txt);
-    }
-
-    alert(txt);
+  SmartCellarWebSocket.request("saveMqttSettings", payload)
+  .then(async result => {
+    if (!result.persisted) throw new Error("Les paramètres MQTT n'ont pas été enregistrés.");
     UserChanged = false;
     SaveBtn.disabled = true;
     CancelBtn.disabled = true;
-
-    const restartResponse = await fetch("/RestartESP", { method: "POST" });
-    if (!restartResponse.ok) {
-      throw new Error(await restartResponse.text());
-    }
+    alert("Paramètres MQTT enregistrés. Redémarrage de l'appareil…");
+    await SmartCellarWebSocket.request("restartDevice", {});
   })
   .catch(err => {
     console.error("Erreur lors de la sauvegarde MQTT :", err);
@@ -182,11 +169,11 @@ function SaveMQTT() {
 
 // Annuler les modifications
 function UndoMQTT() {
+  UserChanged = false;
   LoadMQTT();
 }
- 
-// Initialiser la page
-LoadMQTT();
+
+SmartCellarWebSocket.onState(LoadMQTT);
 
 </script>
 </body>

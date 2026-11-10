@@ -3,14 +3,41 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <math.h>
+#include <string.h>
 #include <ui.h>
 #include "Global/Global.h"
+#include "Controller/ControllerValidation.h"
 
 
 
 void set_switch_state(lv_obj_t* sw, bool on) {
     if(on) lv_obj_add_state(sw, LV_STATE_CHECKED);
     else   lv_obj_clear_state(sw, LV_STATE_CHECKED);
+}
+
+// Ne modifie que l'état désactivé, et seulement s'il change : un appel
+// systématique redessinerait le bouton et effacerait un appui en cours.
+void SetImgButtonEnabled(lv_obj_t* button, bool enabled) {
+    if (button == nullptr) {
+        return;
+    }
+    const bool disabled = lv_obj_has_state(button, LV_STATE_DISABLED);
+    if (disabled == !enabled) {
+        return;
+    }
+    lv_imgbtn_set_state(button, enabled ? LV_IMGBTN_STATE_RELEASED
+                                        : LV_IMGBTN_STATE_DISABLED);
+}
+
+void SetLabelTextIfChanged(lv_obj_t* label, const char* text) {
+    if (label == nullptr || text == nullptr) {
+        return;
+    }
+    // lv_label_set_text réalloue le texte et redessine même s'il est identique.
+    const char* currentText = lv_label_get_text(label);
+    if (currentText == nullptr || strcmp(currentText, text) != 0) {
+        lv_label_set_text(label, text);
+    }
 }
 
 StrctDataController GetControllerSnapshot() {
@@ -22,14 +49,7 @@ StrctDataController GetControllerSnapshot() {
 }
 
 bool HasValidControllerMeasurements(const StrctDataController& data) {
-    const float temperature = data.Temperature +
-        (data.TempOffsetEnabled ? data.TempOffset : 0.0f);
-    const float humidity = data.Humidity +
-        (data.HumOffsetEnabled ? data.HumOffset : 0.0f);
-
-    return isfinite(data.Temperature) && isfinite(data.Humidity) &&
-        isfinite(temperature) && temperature >= -40.0f && temperature <= 80.0f &&
-        isfinite(humidity) && humidity >= 0.0f && humidity <= 100.0f;
+    return GetCorrectedMeasurements(data).Valid();
 }
 
 lv_obj_t* CreateSensorFaultBanner(lv_obj_t* parent) {

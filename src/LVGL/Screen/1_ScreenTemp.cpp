@@ -89,18 +89,18 @@ void Refresh_ScreenTemp() {
 
         char setpointText[16];
         snprintf(setpointText, sizeof(setpointText), "%04.1f", data.SetTemp);
-        lv_label_set_text(ui_TempLabelSetTemp, setpointText);
+        SetLabelTextIfChanged(ui_TempLabelSetTemp, setpointText);
     }
 
 
     //si mesure valable, afficher la température actuelle sinon afficher "--.-"
     if (measurementsAvailable) {
-        const float temperature = data.Temperature + (data.TempOffsetEnabled ? data.TempOffset : 0.0f);
+        const float temperature = GetCorrectedMeasurements(data).Temperature;
         char text[16];
         snprintf(text, sizeof(text), "%04.1f", temperature);
-        lv_label_set_text(ui_TempLabelCurrentTemp, text);
+        SetLabelTextIfChanged(ui_TempLabelCurrentTemp, text);
     } else {
-        lv_label_set_text(ui_TempLabelCurrentTemp, "--.-");
+        SetLabelTextIfChanged(ui_TempLabelCurrentTemp, "--.-");
     }
     
 
@@ -133,7 +133,7 @@ void TempArcSetTempValueChanged(lv_event_t *e) {
 
     char text[16];
     snprintf(text, sizeof(text), "%04.1f", consigneC);
-    lv_label_set_text(ui_TempLabelSetTemp, text);
+    SetLabelTextIfChanged(ui_TempLabelSetTemp, text);
 }
 
 // Gestion de la libération de l'arc de température
@@ -155,7 +155,7 @@ void TempArcSetTempReleased(lv_event_t *e) {
     DataController.SetTemp = consigneC;
     xSemaphoreGive(DataMutex);
 
-    if (changed && !Save_SetTemp_and_SetHum()) {
+    if (changed && !Save_SetTemp()) {
         Serial.println("LVGL : echec de sauvegarde de la consigne temperature.");
     }
 }

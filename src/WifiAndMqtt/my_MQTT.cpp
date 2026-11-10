@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <math.h>
 #include <stdlib.h>
 
 #include <HomeAssistantMQTT.h>
@@ -8,349 +11,167 @@
 #include "Controller/ConfigurationLimits.h"
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
+#include "WifiAndMqtt/my_MQTT.h"
 
+namespace {
 
-//#define  DEBUG
+// Lecture des valeurs toutes les 2 s; l'état n'est publié que s'il a changé,
+// ou toutes les 5 minutes pour que Home Assistant le sache vivant.
+constexpr unsigned long ValueCheckIntervalMs = 2000;
+constexpr unsigned long ForcedPublishIntervalMs = 300000;
 
-// Forward declarations
-void HAMQTT_Callback(String item, String payload, bool readFromMQTT);
-void publishMqttConfig();
-void publishMqttValues(unsigned long Now);
+TaskHandle_t mqttTaskHandle = nullptr;
+bool clientInitialized = false;
+bool discoveryPublished = false;
+unsigned long lastValueCheck = 0;
+unsigned long lastPublishAt = 0;
 
+// Instantané commun à toutes les entités pour un cycle de publication.
+struct MqttSnapshot {
+    StrctDataController data;
+    CorrectedMeasurements measured;
+    SafetyAlarmStatus alarm;
+};
 
-//indique qu'on à deja envoyé l'autoDiscovery
-bool _bMqttConfigPublished = false;
-bool _bMqttClientInitialized = false;
+using ValueFormatter = void (*)(const MqttSnapshot&, char*, size_t);
 
-//Temps dernier envoie d'un message
-unsigned long  mqttLastSend = 0; 
-//temps minimum entre deux messages
-unsigned long  mqttTimeSend = 2000;
+struct MqttEntity {
+    HaEntityConfig config;
+    ValueFormatter format;
+};
 
-//temps maximum avant de renvoyé la valeur d'un item
-unsigned long ItemTimeOut = 300000; //5min
+void formatFloat(float value, int decimals, char* out, size_t size) {
+    if (isfinite(value)) {
+        snprintf(out, size, "%.*f", decimals, static_cast<double>(value));
+    } else {
+        snprintf(out, size, "unknown");
+    }
+}
 
+void formatBool(bool value, char* out, size_t size) {
+    snprintf(out, size, "%s", value ? "true" : "false");
+}
 
-//valeur actuelles
-StrctDataController LocalData ;
-float ActualTemperatureCorr = 0;
-float ActualHumidityCorr =0;
+void formatUnsigned(unsigned long value, char* out, size_t size) {
+    snprintf(out, size, "%lu", value);
+}
 
-//LastValeur
-StrctDataController LastLocalData ;
-float LastActualTemperatureCorr = 0;
-float LastActualHumidityCorr =0;
+// Table unique : ajouter une entité Home Assistant = ajouter une ligne.
+// Les noms (clés d'état, unique_id, topics) sont ceux déjà connus de HA.
+const MqttEntity Entities[] = {
+    {{"sensor", "Temperature", nullptr, "temperature", "measurement", nullptr, "°C", false, true},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatFloat(s.measured.Temperature, 2, o, n); }},
+    {{"sensor", "Humidity", nullptr, "humidity", "measurement", nullptr, "%", false, true},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatFloat(s.measured.Humidity, 2, o, n); }},
+    {{"binary_sensor", "DeviceAlert", nullptr, "problem", nullptr, "mdi:alert", nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.alarm.AlertActive, o, n); }},
+    {{"sensor", "AlertStatus", nullptr, nullptr, nullptr, "mdi:alert-circle-outline", nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) {
+         snprintf(o, n, "%s", GetSafetyAlarmReasonText(s.alarm).c_str());
+     }},
+    {{"sensor", "LastValidTemperature", nullptr, "temperature", "measurement", "mdi:thermometer-check", "°C", false, true},
+     [](const MqttSnapshot& s, char* o, size_t n) {
+         formatFloat(s.alarm.HasLastMeasurement ? s.alarm.LastValidTemperatureC : NAN, 1, o, n);
+     }},
+    {{"sensor", "LastMeasurementAge", nullptr, nullptr, nullptr, "mdi:clock-outline", "s", false, true},
+     [](const MqttSnapshot& s, char* o, size_t n) {
+         if (s.alarm.HasLastMeasurement) formatUnsigned(s.alarm.LastMeasurementAgeSeconds, o, n);
+         else snprintf(o, n, "unknown");
+     }},
+    {{"number", "ConsigneTemperature", "config", nullptr, nullptr, "mdi:Thermometer-Lines", "°C", true, true,
+      MinTemperatureSetpointC, MaxTemperatureSetpointC, 0.1f},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatFloat(s.data.SetTemp, 2, o, n); }},
+    {{"number", "ConsigneHumidity", "config", nullptr, nullptr, "mdi:water-percent", "%", true, true,
+      MinHumiditySetpointPercent, MaxHumiditySetpointPercent, 0.1f},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatFloat(s.data.SetHum, 2, o, n); }},
+    {{"binary_sensor", "Cold_Relay", nullptr, nullptr, nullptr, nullptr, nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.ColdState, o, n); }},
+    {{"binary_sensor", "Heat_Relay", nullptr, nullptr, nullptr, nullptr, nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.HeatState, o, n); }},
+    {{"binary_sensor", "Dehum_Relay", nullptr, nullptr, nullptr, nullptr, nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.DehumState, o, n); }},
+    {{"binary_sensor", "Hum_Relay", nullptr, nullptr, nullptr, nullptr, nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.HumState, o, n); }},
+    {{"binary_sensor", "Ventilation_Relay", nullptr, nullptr, nullptr, "mdi:fan", nullptr, false, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.FanState, o, n); }},
+    {{"switch", "Ventilation_Enabled", "config", nullptr, nullptr, "mdi:fan-auto", nullptr, true, false},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatBool(s.data.FanEnabled, o, n); }},
+    {{"number", "Ventilation_On_Minutes", "config", nullptr, nullptr, "mdi:timer-play", "min", true, true,
+      static_cast<float>(FanDurationMinMinutes), static_cast<float>(FanDurationMaxMinutes), 1.0f},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatUnsigned(s.data.FanOnMinutes, o, n); }},
+    {{"number", "Ventilation_Off_Minutes", "config", nullptr, nullptr, "mdi:timer-pause", "min", true, true,
+      static_cast<float>(FanDurationMinMinutes), static_cast<float>(FanDurationMaxMinutes), 1.0f},
+     [](const MqttSnapshot& s, char* o, size_t n) { formatUnsigned(s.data.FanOffMinutes, o, n); }},
+};
 
+MqttSnapshot takeSnapshot() {
+    MqttSnapshot snapshot;
+    xSemaphoreTake(DataMutex, portMAX_DELAY);
+    snapshot.data = DataController;
+    xSemaphoreGive(DataMutex);
+    snapshot.measured = GetCorrectedMeasurements(snapshot.data);
+    snapshot.alarm = GetSafetyAlarmStatus();
+    return snapshot;
+}
 
-//LastSendValue
-unsigned long  T_TempOffsetEnabled = 0;
-unsigned long  T_TempOffset = 0;
-unsigned long  T_HumOffsetEnabled = 0;
-unsigned long  T_HumOffset = 0;
-unsigned long  T_SetTemp = 0;
-unsigned long  T_SetHum = 0;
-unsigned long  T_ColdState = 0;
-unsigned long  T_HeatState = 0;
-unsigned long  T_DehumState = 0;
-unsigned long  T_HumState = 0;
-unsigned long  T_FanState = 0;
-unsigned long  T_FanEnabled = 0;
-unsigned long  T_FanOnMinutes = 0;
-unsigned long  T_FanOffMinutes = 0;
-unsigned long  T_ActualTemperatureCorr = 0;
-unsigned long  T_ActualHumidityCorr = 0;
+void updateValues(bool forcePublish) {
+    const MqttSnapshot snapshot = takeSnapshot();
+    char value[HAMQTT_ITEM_VALUE_SIZE];
+    for (const MqttEntity& entity : Entities) {
+        entity.format(snapshot, value, sizeof(value));
+        mqtt.setValue(entity.config.name, value);
+    }
+    if (mqtt.sendValues(forcePublish)) {
+        lastPublishAt = millis();
+    }
+}
 
+void publishDiscovery() {
+    for (const MqttEntity& entity : Entities) {
+        mqtt.publishDiscovery(entity.config);
+    }
+}
 
-//fonction pour se connecter
-void ConnectMqtt(){
+bool parseFanMinutes(const char* text, unsigned int& value) {
+    return ParseBoundedUnsigned(String(text), FanDurationMinMinutes,
+                                FanDurationMaxMinutes, value);
+}
 
-    // Keep the existing client across Wi-Fi reconnects; mqtt.loop() reconnects it.
-    if (_bMqttClientInitialized) {
+// Commandes reçues de Home Assistant (exécutées dans la tâche MQTT).
+void handleCommand(const char* item, const char* payload) {
+    if (strcmp(item, "ConsigneTemperature") == 0 ||
+        strcmp(item, "ConsigneHumidity") == 0) {
+        const bool temperature = strcmp(item, "ConsigneTemperature") == 0;
+        float value;
+        if (!ParseFiniteFloat(String(payload), value) ||
+            !(temperature ? IsValidTemperatureSetpoint(value)
+                          : IsValidHumiditySetpoint(value))) {
+            Serial.printf("MQTT : consigne invalide pour %s : %s\n", item, payload);
+            return;
+        }
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        float& setpoint = temperature ? DataController.SetTemp : DataController.SetHum;
+        const bool changed = setpoint != value;
+        setpoint = value;
+        xSemaphoreGive(DataMutex);
+        if (changed) {
+            // Persisté comme depuis l'écran ou le Web.
+            temperature ? Save_SetTemp() : Save_SetHum();
+            Serial.printf("MQTT : %s = %.2f\n", item, static_cast<double>(value));
+        }
         return;
     }
 
-    String mac = WiFi.macAddress();
-    // Remove ':' to build a compact MAC string
-    String MAC = mac.substring(0, 2) + mac.substring(3, 5) + mac.substring(6, 8) + mac.substring(9, 11) + mac.substring(12, 14) + mac.substring(15, 17);
-
-    // Configure MQTT wrapper
-    mqtt.MqttUser = DataMqtt.MqttUser;
-    mqtt.MqttPassword = DataMqtt.MqttPassword;
-    mqtt.Manufacturer = DataMqtt.MqttManu;
-    mqtt.Model = DataMqtt.MqttModel;
-    mqtt.Version = DataMqtt.MqttVersion;
-    mqtt.Name = DataMqtt.MqttDeviceName;
-    mqtt.DeviceName = DataMqtt.MqttManu + "_" + DataMqtt.MqttModel + "_" + MAC;
-    mqtt.setCallback(HAMQTT_Callback);
-    mqtt.begin(&wifiClient, DataMqtt.MqttServer.c_str(), DataMqtt.MqttPort);
-    _bMqttClientInitialized = true;
-
-}
-
-//loop (appeler dans la main loop)
-void MyMqttLoop(){
-
-    unsigned long now=millis();
-
-    Set_MqttConnected(mqtt.connected());
-   
-	// If MQTT is disconnected, mark config as not published so it'll be republished on next connect
-	if (!mqtt.connected()) {
-		_bMqttConfigPublished = false;
-	}
-
-	mqtt.loop();
-
-	if (mqtt.connected() && !_bMqttConfigPublished)
-	{
-		publishMqttConfig();// Publish HA discovery config
-		mqtt.sendValues();// Publish initial state so HA sees entities immediately
-		//mqtt.readValues();// Try to read retained values to restore previous state
-		_bMqttConfigPublished = true;
-	}
-
-    //Si délais supérieur à mqttTimeSend
-    if (mqtt.connected() && (now - mqttLastSend) >= mqttTimeSend) {
-	    mqttLastSend = now;
-	    publishMqttValues(now); //envoyer les valeurs ( si differentes )
-    }
-
-}
-
-//envoyer les infos pour l'auto discovery home assistant
-void publishMqttConfig()
-{
-#ifdef DEBUG
-  Serial.println("Publishing config:");
-#endif
-
-    //copie des valeur dans un local 
-    
-    xSemaphoreTake(DataMutex, portMAX_DELAY);
-    LocalData = DataController;
-    xSemaphoreGive(DataMutex);
-
-    ActualTemperatureCorr = LocalData.Temperature +  (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
-    ActualHumidityCorr = LocalData.Humidity + (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
-
-    mqtt.publishConfigSensor("temperature", "measurement", "Temperature", "", "°C", String(ActualTemperatureCorr));
-    mqtt.publishConfigSensor("humidity", "measurement", "Humidity", "", "%", String(ActualHumidityCorr));
-    const SafetyAlarmStatus alarmStatus = GetSafetyAlarmStatus();
-    mqtt.publishConfigBinarySensor(
-        "problem", "DeviceAlert", "mdi:alert",
-        "false", "true", alarmStatus.AlertActive ? "true" : "false");
-    mqtt.publishConfigTextSensor(
-        "AlertStatus", "mdi:alert-circle-outline",
-        GetSafetyAlarmReasonText(alarmStatus));
-    mqtt.publishConfigSensor(
-        "temperature", "measurement", "LastValidTemperature",
-        "mdi:thermometer-check", "°C",
-        alarmStatus.HasLastMeasurement
-            ? String(alarmStatus.LastValidTemperatureC, 1)
-            : "unknown");
-    mqtt.publishConfigSensor(
-        "", "", "LastMeasurementAge", "mdi:clock-outline", "s",
-        alarmStatus.HasLastMeasurement
-            ? String(alarmStatus.LastMeasurementAgeSeconds)
-            : "unknown");
-
-    mqtt.publishConfigNumber(
-        "config", "ConsigneTemperature", "mdi:Thermometer-Lines", "°C",
-        String(MinTemperatureSetpointC, 2), String(MaxTemperatureSetpointC, 2),
-        String(LocalData.SetTemp));
-    mqtt.publishConfigNumber(
-        "config", "ConsigneHumidity", "mdi:water-percent", "%",
-        String(MinHumiditySetpointPercent, 2), String(MaxHumiditySetpointPercent, 2),
-        String(LocalData.SetHum));
-
-    mqtt.publishConfigBinarySensor("", "Cold_Relay", "", "false", "true", LocalData.ColdState ? "true" : "false");
-    mqtt.publishConfigBinarySensor("", "Heat_Relay", "", "false", "true", LocalData.HeatState ? "true" : "false");
-    mqtt.publishConfigBinarySensor("", "Dehum_Relay", "", "false", "true", LocalData.DehumState ? "true" : "false");
-    mqtt.publishConfigBinarySensor("", "Hum_Relay", "", "false", "true", LocalData.HumState ? "true" : "false");
-    mqtt.publishConfigBinarySensor("", "Ventilation_Relay", "mdi:fan", "false", "true", LocalData.FanState ? "true" : "false");
-    mqtt.publishConfigSwitch("config", "Ventilation_Enabled", "mdi:fan-auto", LocalData.FanEnabled ? "true" : "false");
-    mqtt.publishConfigNumber("config", "Ventilation_On_Minutes", "mdi:timer-play", "min", String(FanDurationMinMinutes), String(FanDurationMaxMinutes), String(LocalData.FanOnMinutes), "1");
-    mqtt.publishConfigNumber("config", "Ventilation_Off_Minutes", "mdi:timer-pause", "min", String(FanDurationMinMinutes), String(FanDurationMaxMinutes), String(LocalData.FanOffMinutes), "1");
-
-
-    //mqtt.publishConfigButton("", "Open", "mdi:window-shutter-open", "Command", "open");
-    //String options[] = { "Open", "Close", "None" };
-    //mqtt.publishConfigSelect("config", "Startup init", "mdi:cog-refresh", options, 3, "Open");
-    //mqtt.publishConfigSwitch("config", "Enabled", "mdi:blur", "true");
-  
-
-}
-
-//envoyé les valeurs à HA (si nouvelles ou si > timeOut)
-void publishMqttValues(unsigned long Now){
-
-
-    //copie des valeur dans un local 
-    xSemaphoreTake(DataMutex, portMAX_DELAY);
-    LocalData = DataController;
-    xSemaphoreGive(DataMutex);
-
-
-
-    ActualTemperatureCorr = LocalData.Temperature +  (LocalData.TempOffsetEnabled ? LocalData.TempOffset : 0.0f);
-    ActualHumidityCorr = LocalData.Humidity + (LocalData.HumOffsetEnabled ? LocalData.HumOffset : 0.0f);
-
-    //Si valeur diffenente de la derniere envoyée / ou si Temps de la derniere valeur envoyé > TimeOut
-    if((ActualTemperatureCorr != LastActualTemperatureCorr) || (Now - T_ActualTemperatureCorr) >= ItemTimeOut){
-        mqtt.setValue("Temperature", String(ActualTemperatureCorr));
-        LastActualTemperatureCorr = ActualTemperatureCorr; 
-        T_ActualTemperatureCorr = Now;
-    } 
-    
-    if((ActualHumidityCorr != LastActualHumidityCorr) || (Now - T_ActualHumidityCorr) >= ItemTimeOut){
-        mqtt.setValue("Humidity", String(ActualHumidityCorr));
-        LastActualHumidityCorr = ActualHumidityCorr; 
-        T_ActualHumidityCorr = Now;
-    } 
-    
-    if((LocalData.SetTemp != LastLocalData.SetTemp) || (Now - T_SetTemp) >= ItemTimeOut){
-        mqtt.setValue("ConsigneTemperature", String(LocalData.SetTemp));
-        LastLocalData.SetTemp = LocalData.SetTemp; 
-        T_SetTemp = Now;
-    } 
-    
-    if((LocalData.SetHum != LastLocalData.SetHum) || (Now - T_SetHum) >= ItemTimeOut){
-        mqtt.setValue("ConsigneHumidity", String(LocalData.SetHum));
-        LastLocalData.SetHum = LocalData.SetHum; 
-        T_SetHum = Now;
-    } 
-
-
-    if((LocalData.ColdState != LastLocalData.ColdState) || (Now - T_ColdState) >= ItemTimeOut){
-        mqtt.setValue("Cold_Relay", LocalData.ColdState ? "true" : "false");
-        LastLocalData.ColdState = LocalData.ColdState; 
-        T_ColdState = Now;
-    } 
-
-    if((LocalData.HeatState != LastLocalData.HeatState) || (Now - T_HeatState) >= ItemTimeOut){
-        mqtt.setValue("Heat_Relay", LocalData.HeatState ? "true" : "false");
-        LastLocalData.HeatState = LocalData.HeatState; 
-        T_HeatState = Now;
-    }     
-
-    if((LocalData.DehumState != LastLocalData.DehumState) || (Now - T_DehumState) >= ItemTimeOut){
-        mqtt.setValue("Dehum_Relay", LocalData.DehumState ? "true" : "false");
-        LastLocalData.DehumState = LocalData.DehumState; 
-        T_DehumState = Now;
-    } 
-
-    if((LocalData.HumState != LastLocalData.HumState) || (Now - T_HumState) >= ItemTimeOut){
-        mqtt.setValue("Hum_Relay", LocalData.HumState ? "true" : "false");
-        LastLocalData.HumState = LocalData.HumState; 
-        T_HumState = Now;
-    }     
-
-    if((LocalData.FanState != LastLocalData.FanState) || (Now - T_FanState) >= ItemTimeOut){
-        mqtt.setValue("Ventilation_Relay", LocalData.FanState ? "true" : "false");
-        LastLocalData.FanState = LocalData.FanState;
-        T_FanState = Now;
-    }
-
-    if((LocalData.FanEnabled != LastLocalData.FanEnabled) || (Now - T_FanEnabled) >= ItemTimeOut){
-        mqtt.setValue("Ventilation_Enabled", LocalData.FanEnabled ? "true" : "false");
-        LastLocalData.FanEnabled = LocalData.FanEnabled;
-        T_FanEnabled = Now;
-    }
-
-    if((LocalData.FanOnMinutes != LastLocalData.FanOnMinutes) || (Now - T_FanOnMinutes) >= ItemTimeOut){
-        mqtt.setValue("Ventilation_On_Minutes", String(LocalData.FanOnMinutes));
-        LastLocalData.FanOnMinutes = LocalData.FanOnMinutes;
-        T_FanOnMinutes = Now;
-    }
-
-    if((LocalData.FanOffMinutes != LastLocalData.FanOffMinutes) || (Now - T_FanOffMinutes) >= ItemTimeOut){
-        mqtt.setValue("Ventilation_Off_Minutes", String(LocalData.FanOffMinutes));
-        LastLocalData.FanOffMinutes = LocalData.FanOffMinutes;
-        T_FanOffMinutes = Now;
-    }
-
-    const SafetyAlarmStatus alarmStatus = GetSafetyAlarmStatus();
-    mqtt.setValue("DeviceAlert", alarmStatus.AlertActive ? "true" : "false");
-    mqtt.setValue("AlertStatus", GetSafetyAlarmReasonText(alarmStatus));
-    mqtt.setValue(
-        "LastValidTemperature",
-        alarmStatus.HasLastMeasurement
-            ? String(alarmStatus.LastValidTemperatureC, 1)
-            : "unknown");
-    mqtt.setValue(
-        "LastMeasurementAge",
-        alarmStatus.HasLastMeasurement
-            ? String(alarmStatus.LastMeasurementAgeSeconds)
-            : "unknown");
-
-	mqtt.sendValues();
-		
-
-}
-
-//Message venant de MQTT
-void HAMQTT_Callback(String item, String payload, bool readFromMQTT){
-
-    #ifdef DEBUG
-    Serial.print("Message arrived for item: '");
-    Serial.print(item);
-    Serial.print("' with payload: ");
-    Serial.print(payload);
-    if (readFromMQTT)
-        Serial.print(" (read from MQTT)");
-    Serial.println();
-    #endif
-
-  // PROCESS NEW DATA HERE
-  if (item != "Command")
-  {
-
-    if(item == "ConsigneTemperature")
-    {
-        float val;
-        if (!ParseFiniteFloat(payload, val) || !IsValidTemperatureSetpoint(val)) {
-            Serial.printf("MQTT : consigne temperature invalide: %s\n", payload.c_str());
-            return;
-        }
-
-        xSemaphoreTake(DataMutex, portMAX_DELAY);
-        const bool changed = DataController.SetTemp != val;
-        DataController.SetTemp = val;
-        xSemaphoreGive(DataMutex);
-        if (changed) {
-            Serial.printf("MQTT : SetTemp updated to %.2f\n", val);
-        }
-
-    }
-    else if(item == "ConsigneHumidity")
-    {
-        float val;
-        if (!ParseFiniteFloat(payload, val) || !IsValidHumiditySetpoint(val)) {
-            Serial.printf("MQTT : consigne humidite invalide: %s\n", payload.c_str());
-            return;
-        }
-
-        xSemaphoreTake(DataMutex, portMAX_DELAY);
-        const bool changed = DataController.SetHum != val;
-        DataController.SetHum = val;
-        xSemaphoreGive(DataMutex);
-        if (changed) {
-            Serial.printf("MQTT : SetHum updated to %.2f\n", val);
-        }
-    }
-    else if(item == "Ventilation_Enabled")
-    {
-        payload.trim();
+    if (strcmp(item, "Ventilation_Enabled") == 0) {
         bool value;
-        if (payload == "true" || payload == "ON") {
+        if (strcmp(payload, "true") == 0 || strcmp(payload, "ON") == 0) {
             value = true;
-        } else if (payload == "false" || payload == "OFF") {
+        } else if (strcmp(payload, "false") == 0 || strcmp(payload, "OFF") == 0) {
             value = false;
         } else {
-            Serial.printf("MQTT : valeur Ventilation_Enabled invalide: %s\n", payload.c_str());
+            Serial.printf("MQTT : valeur Ventilation_Enabled invalide : %s\n", payload);
             return;
         }
-
         xSemaphoreTake(DataMutex, portMAX_DELAY);
         const bool changed = DataController.FanEnabled != value;
         DataController.FanEnabled = value;
@@ -359,31 +180,109 @@ void HAMQTT_Callback(String item, String payload, bool readFromMQTT){
             Save_FanSettings();
             Serial.printf("MQTT : Ventilation %s\n", value ? "activee" : "desactivee");
         }
+        return;
     }
-    else if(item == "Ventilation_On_Minutes" || item == "Ventilation_Off_Minutes")
-    {
-        payload.trim();
-        const char *text = payload.c_str();
-        char *end = nullptr;
-        const long value = strtol(text, &end, 10);
-        if (text == end || *end != '\0' || value < FanDurationMinMinutes || value > FanDurationMaxMinutes) {
-            Serial.printf("MQTT : duree de ventilation invalide pour %s: %s\n", item.c_str(), payload.c_str());
+
+    if (strcmp(item, "Ventilation_On_Minutes") == 0 ||
+        strcmp(item, "Ventilation_Off_Minutes") == 0) {
+        unsigned int value;
+        if (!parseFanMinutes(payload, value)) {
+            Serial.printf("MQTT : duree de ventilation invalide pour %s : %s\n", item, payload);
             return;
         }
-
         xSemaphoreTake(DataMutex, portMAX_DELAY);
-        unsigned int &setting = item == "Ventilation_On_Minutes"
+        unsigned int& setting = strcmp(item, "Ventilation_On_Minutes") == 0
             ? DataController.FanOnMinutes
             : DataController.FanOffMinutes;
-        const bool changed = setting != static_cast<unsigned int>(value);
-        setting = static_cast<unsigned int>(value);
+        const bool changed = setting != value;
+        setting = value;
         xSemaphoreGive(DataMutex);
         if (changed) {
             Save_FanSettings();
-            Serial.printf("MQTT : %s = %ld min\n", item.c_str(), value);
+            Serial.printf("MQTT : %s = %u min\n", item, value);
         }
+        return;
     }
 
+    Serial.printf("MQTT : commande inconnue : %s\n", item);
+}
 
-  }
+void mqttTask(void*) {
+    for (;;) {
+        if (!Get_WifiScanning()) {
+            MyMqttLoop();
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+void startMqttTask() {
+    if (mqttTaskHandle != nullptr) {
+        return;
+    }
+
+    if (xTaskCreate(mqttTask, "mqtt", 8192, nullptr, 1, &mqttTaskHandle) != pdPASS) {
+        mqttTaskHandle = nullptr;
+        Serial.println("[MQTT] Impossible de démarrer la tâche réseau MQTT.");
+    }
+}
+
+}
+
+void ConnectMqtt() {
+    if (!clientInitialized) {
+        uint8_t mac[6];
+        WiFi.macAddress(mac);
+        char macText[13];
+        snprintf(macText, sizeof(macText), "%02X%02X%02X%02X%02X%02X",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+        xSemaphoreTake(DataMutex, portMAX_DELAY);
+        mqtt.MqttUser = DataMqtt.MqttUser;
+        mqtt.MqttPassword = DataMqtt.MqttPassword;
+        mqtt.Manufacturer = DataMqtt.MqttManu;
+        mqtt.Model = DataMqtt.MqttModel;
+        mqtt.Version = DataMqtt.MqttVersion;
+        mqtt.Name = DataMqtt.MqttDeviceName;
+        mqtt.DeviceName = DataMqtt.MqttManu + "_" + DataMqtt.MqttModel + "_" + macText;
+        const String server = DataMqtt.MqttServer;
+        const uint16_t port = DataMqtt.MqttPort;
+        xSemaphoreGive(DataMutex);
+
+        mqtt.setCallback(handleCommand);
+        wifiClient.setTimeout(2);
+        mqtt.begin(&wifiClient, server.c_str(), port);
+        clientInitialized = true;
+    }
+
+    // Le client est conservé entre les reconnexions Wi-Fi.
+    startMqttTask();
+}
+
+// Connexion et publication MQTT, hors de la boucle de régulation.
+void MyMqttLoop() {
+    const unsigned long now = millis();
+
+    Set_MqttConnected(mqtt.connected());
+    if (!mqtt.connected()) {
+        discoveryPublished = false;
+    }
+
+    mqtt.loop();
+    if (!mqtt.connected()) {
+        return;
+    }
+
+    if (!discoveryPublished) {
+        publishDiscovery();
+        updateValues(true);
+        discoveryPublished = true;
+        lastValueCheck = now;
+        return;
+    }
+
+    if (now - lastValueCheck >= ValueCheckIntervalMs) {
+        lastValueCheck = now;
+        updateValues(now - lastPublishAt >= ForcedPublishIntervalMs);
+    }
 }

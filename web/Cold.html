@@ -72,6 +72,7 @@
 
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script>
 
 
@@ -120,11 +121,11 @@ DelayMinOffInput.addEventListener("input", () => {
 
 
 
-function UpdateStatus() {
-    fetch("/GlobalStatus").then(r => {
-    if (!r.ok) throw new Error(`Erreur HTTP ${r.status}`);
-    return r.json();
-    }).then(d => {
+let LastGlobalStatus = null;
+function UpdateStatus(d) {
+    if (d) LastGlobalStatus = d;
+    else d = LastGlobalStatus;
+    if (!d) return;
 
     CurrentLimits = d.Limits || null;
     const hysteresisLimits = CurrentLimits && CurrentLimits.Hysteresis && CurrentLimits.Hysteresis.Cold;
@@ -142,15 +143,14 @@ function UpdateStatus() {
     
     ConsigneTemp = d.Consigne.SetTemp;
     
-    HysHighInput.value = d.HardwareCold.HysHigh;
-    HysLowInput.value = d.HardwareCold.HysLow;
-    DelayMinOnInput.value = d.HardwareCold.DelayMinOn;
-    DelayMinOffInput.value = d.HardwareCold.DelayMinOff;
+    if (!UserChanged) {
+        HysHighInput.value = d.HardwareCold.HysHigh;
+        HysLowInput.value = d.HardwareCold.HysLow;
+        DelayMinOnInput.value = d.HardwareCold.DelayMinOn;
+        DelayMinOffInput.value = d.HardwareCold.DelayMinOff;
+    }
 
     UpdateDetailSeuil();
-    }).catch(error => {
-        console.error("Erreur de lecture des paramètres froid :", error);
-    });
 }
 
 
@@ -203,27 +203,15 @@ function savemodification() {
         return; // on bloque la sauvegarde
     }
 
-    // Préparation des données pour POST
-    const bodyData = `HysHigh=${HysHigh}&HysLow=${HysLow}&DelayMinOn=${DelayMinOn}&DelayMinOff=${DelayMinOff}`;
-
-    // Envoi vers le serveur en POST
-    fetch("/SaveColdParameters", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: bodyData
+    SmartCellarWebSocket.request("setRelaySettings", {
+        kind: "cold", hysHigh: HysHigh, hysLow: HysLow,
+        delayMinOn: DelayMinOn, delayMinOff: DelayMinOff
     })
-    .then(async r => {
-        const text = await r.text();
-        if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-        return text;
-    })
-    .then(txt => {
-        alert(txt);
-
-        // Mise à jour après confirmation serveur
-        UpdateStatus();
+    .then(result => {
+        if (!result.persisted) throw new Error("Les paramètres n'ont pas été enregistrés.");
         UserChanged = false;
         ApplyBtnEnable();
+        alert("Paramètres enregistrés.");
     })
     .catch(err => {
         console.error("Erreur lors de la sauvegarde des paramètres froid :", err);
@@ -250,7 +238,7 @@ function ApplyBtnEnable() {
 
 
 
-UpdateStatus();
+SmartCellarWebSocket.onState(UpdateStatus);
 ApplyBtnEnable();
 
 

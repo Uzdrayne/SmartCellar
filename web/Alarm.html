@@ -46,6 +46,7 @@
 </div>
 
 <script src="/ConfigurationLimits.js"></script>
+<script src="/WebSocketClient.js"></script>
 <script>
 let userChanged = false;
 let alarmThresholdLimits = null;
@@ -75,48 +76,43 @@ function formatAge(seconds) {
   return `il y a ${hours} h ${minutes % 60} min`;
 }
 
-async function updateStatus() {
-  try {
-    const response = await fetch("/AlarmSettings", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP ${response.status}`);
-    }
+// Même logique que GetSafetyAlarmReasonText() côté firmware.
+function safetyReasonText(alerts) {
+  const reasons = [];
+  if (alerts.NanoFallback) reasons.push("Mode secours");
+  if (alerts.NanoLinkLost || alerts.MeasurementsUnavailable) {
+    reasons.push("Mesures ou liaison Nano indisponibles");
+  }
+  if (alerts.HighTemperatureActive) reasons.push("Température élevée");
+  if (reasons.length) return reasons.join(" ; ");
+  return alerts.HasLastMeasurement ? "Normal" : "Initialisation";
+}
 
-    const data = await response.json();
-    if (typeof data.thresholdC !== "number" ||
-        typeof data.thresholdMinC !== "number" ||
-        typeof data.thresholdMaxC !== "number" ||
-        typeof data.alertActive !== "boolean" ||
-        typeof data.alertReason !== "string") {
-      throw new Error("État des alertes invalide");
-    }
-    alarmThresholdLimits = {
-      Min: data.thresholdMinC,
-      Max: data.thresholdMaxC
-    };
-    if (!applyNumericLimits(thresholdInput, alarmThresholdLimits)) {
-      throw new Error("Limites du seuil d'alerte invalides");
-    }
-
-    if (!userChanged) {
-      thresholdInput.value = data.thresholdC;
-    }
-    alertState.textContent = data.alertActive ? "ALERTE" : "Normal";
-    alertState.style.color = data.alertActive ? "#b00020" : "#16803c";
-    alertReason.textContent = data.alertReason;
-
-    if (typeof data.lastValidTemperatureC === "number" &&
-        typeof data.lastMeasurementAgeSeconds === "number") {
-      lastValidTemperature.textContent = `${data.lastValidTemperatureC.toFixed(1)} °C`;
-      lastMeasurementAge.textContent = `(${formatAge(data.lastMeasurementAgeSeconds)})`;
-    } else {
-      lastValidTemperature.textContent = "--";
-      lastMeasurementAge.textContent = "";
-    }
-  } catch (error) {
+function updateStatus(state) {
+  const alerts = state && state.Alerts;
+  if (!alerts || typeof alerts.HighTemperatureThresholdC !== "number") {
     alertState.textContent = "Indisponible";
-    alertReason.textContent = "Impossible de lire l'état des alertes.";
-    console.error("Erreur de lecture de l'état des alertes :", error);
+    alertReason.textContent = "État des alertes invalide.";
+    return;
+  }
+
+  alarmThresholdLimits = state.Limits && state.Limits.AlarmThresholdC;
+  applyNumericLimits(thresholdInput, alarmThresholdLimits);
+  if (!userChanged) {
+    thresholdInput.value = alerts.HighTemperatureThresholdC;
+  }
+
+  alertState.textContent = alerts.PrimaryActive ? "ALERTE" : "Normal";
+  alertState.style.color = alerts.PrimaryActive ? "#b00020" : "#16803c";
+  alertReason.textContent = safetyReasonText(alerts);
+
+  if (typeof alerts.LastValidTemperatureC === "number" &&
+      typeof alerts.LastMeasurementAgeSeconds === "number") {
+    lastValidTemperature.textContent = `${alerts.LastValidTemperatureC.toFixed(1)} °C`;
+    lastMeasurementAge.textContent = `(${formatAge(alerts.LastMeasurementAgeSeconds)})`;
+  } else {
+    lastValidTemperature.textContent = "--";
+    lastMeasurementAge.textContent = "";
   }
 }
 
@@ -131,20 +127,11 @@ async function saveAlarmSettings() {
   }
 
   try {
-    const response = await fetch("/SaveAlarmSettings", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ thresholdC: String(thresholdC) })
-    });
-    const message = await response.text();
-    if (!response.ok) {
-      throw new Error(message || `Erreur HTTP ${response.status}`);
-    }
-
-    alert(message);
+    const result = await SmartCellarWebSocket.request("setAlarmThreshold", { thresholdC });
+    if (!result.persisted) throw new Error("Le seuil d'alerte n'a pas été enregistré.");
+    alert("Seuil d'alerte enregistré.");
     userChanged = false;
     updateButtons();
-    await updateStatus();
   } catch (error) {
     console.error("Erreur d'enregistrement du seuil d'alerte :", error);
     alert(`Impossible d'enregistrer le seuil : ${error.message}`);
@@ -154,7 +141,7 @@ async function saveAlarmSettings() {
 function undoChanges() {
   userChanged = false;
   updateButtons();
-  updateStatus();
+  updateStatus(lastAlarmState);
 }
 
 thresholdInput.addEventListener("input", () => {
@@ -162,8 +149,11 @@ thresholdInput.addEventListener("input", () => {
   updateButtons();
 });
 
-updateStatus();
-setInterval(updateStatus, 2000);
+let lastAlarmState = null;
+SmartCellarWebSocket.onState(state => {
+  lastAlarmState = state;
+  updateStatus(state);
+});
 </script>
 
 </body>
