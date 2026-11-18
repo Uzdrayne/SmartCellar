@@ -44,6 +44,7 @@ class HomeAssistantMQTT
     void loop();
     bool connected();
     void setCallback(CallbackFunction f);
+    void setNanoAvailable(bool available);
 
     void publishDiscovery(const HaEntityConfig& entity);
     // Renvoie true si la valeur a changé depuis la dernière publication.
@@ -61,6 +62,7 @@ class HomeAssistantMQTT
     // PubSubClient ne copie pas le nom d'hôte : il doit vivre aussi longtemps que le client.
     char serverHost[HAMQTT_TOPIC_SIZE] = {};
     char availabilityTopic[HAMQTT_TOPIC_SIZE] = {};  // <Manufacturer>/<DeviceName>/state
+    char nanoAvailabilityTopic[HAMQTT_TOPIC_SIZE] = {};
     char stateTopic[HAMQTT_TOPIC_SIZE] = {};         // <Manufacturer>/<DeviceName>
     char commandTopicPrefix[HAMQTT_TOPIC_SIZE] = {}; // <Manufacturer>/<DeviceName>/set/
 
@@ -69,8 +71,12 @@ class HomeAssistantMQTT
     bool valuesDirty = false;
 
     unsigned long _nextMqttAttemptMs = 0;
+    unsigned long _lastAvailabilityPublishMs = 0;
+    unsigned long _lastNanoAvailabilityPublishMs = 0;
     unsigned long _mqttBackoffMs = 1000;
     const unsigned long _mqttBackoffMaxMs = 30000;
+    bool _nanoAvailabilityPublished = false;
+    bool _nanoAvailable = false;
 
     CallbackFunction cb_callback = nullptr;
 

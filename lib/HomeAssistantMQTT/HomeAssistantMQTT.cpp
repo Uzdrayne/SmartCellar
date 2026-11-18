@@ -15,6 +15,9 @@ char publishBuffer[PublishBufferSize];
 
 constexpr uint16_t ReceiveBufferSize = 512;
 constexpr size_t MaxCommandPayloadSize = 64;
+constexpr uint16_t EntityStateExpireAfterSeconds = 600;
+constexpr unsigned long AvailabilityHeartbeatIntervalMs = 30000;
+constexpr char OnlineAvailabilityPayload[] = "{\"state\":\"online\"}";
 
 unsigned long lastMqttPublishFailureLog = 0;
 
@@ -37,7 +40,8 @@ void logMqttPublishFailure(const char* operation, size_t payloadLength,
 }
 
 bool publishJson(PubSubClient* client, const char* topic,
-                 const JsonDocument& document, const char* operation)
+                 const JsonDocument& document, const char* operation,
+                 bool retained)
 {
   const size_t length = measureJson(document);
   if (length >= PublishBufferSize) {
@@ -47,7 +51,7 @@ bool publishJson(PubSubClient* client, const char* topic,
   }
   serializeJson(document, publishBuffer, PublishBufferSize);
 
-  const bool sent = client->beginPublish(topic, length, true) &&
+  const bool sent = client->beginPublish(topic, length, retained) &&
                     client->write(reinterpret_cast<const uint8_t*>(publishBuffer),
                                   length) == length &&
                     client->endPublish();
@@ -60,6 +64,17 @@ bool publishJson(PubSubClient* client, const char* topic,
 bool hasText(const char* text)
 {
   return text != nullptr && text[0] != '\0';
+}
+
+bool dependsOnNanoTelemetry(const HaEntityConfig& entity)
+{
+  if (strcmp(entity.component, "sensor") == 0) {
+    return strcmp(entity.name, "Temperature") == 0 ||
+           strcmp(entity.name, "Humidity") == 0;
+  }
+
+  return strcmp(entity.component, "binary_sensor") == 0 &&
+         strstr(entity.name, "_Relay") != nullptr;
 }
 
 }
@@ -76,6 +91,7 @@ void HomeAssistantMQTT::begin(WiFiClient* wifiClient, const char* server, const 
   snprintf(stateTopic, sizeof(stateTopic), "%s/%s",
            Manufacturer.c_str(), DeviceName.c_str());
   snprintf(availabilityTopic, sizeof(availabilityTopic), "%s/state", stateTopic);
+  snprintf(nanoAvailabilityTopic, sizeof(nanoAvailabilityTopic), "%s/nano/state", stateTopic);
   snprintf(commandTopicPrefix, sizeof(commandTopicPrefix), "%s/set/", stateTopic);
 
   snprintf(serverHost, sizeof(serverHost), "%s", server != nullptr ? server : "");
@@ -95,6 +111,17 @@ void HomeAssistantMQTT::loop()
     connect();
 
   mqttClient->loop();
+  if (mqttClient->connected()) {
+    const unsigned long now = millis();
+    if (now - _lastAvailabilityPublishMs >= AvailabilityHeartbeatIntervalMs) {
+      if (mqttClient->publish(availabilityTopic, OnlineAvailabilityPayload, false)) {
+        _lastAvailabilityPublishMs = now;
+      } else {
+        logMqttPublishFailure("battement disponibilité", sizeof(OnlineAvailabilityPayload) - 1,
+                              mqttClient);
+      }
+    }
+  }
 }
 
 void HomeAssistantMQTT::connect()
@@ -121,9 +148,21 @@ void HomeAssistantMQTT::connect()
   );
 
   if (ok) {
-    if (!mqttClient->publish(availabilityTopic, "{\"state\":\"online\"}", true)) {
-      logMqttPublishFailure("publication disponibilité", 18, mqttClient);
+    if (!mqttClient->publish(stateTopic, "", true)) {
+      logMqttPublishFailure("suppression de l'état retenu", 0, mqttClient);
     }
+    if (!mqttClient->publish(nanoAvailabilityTopic, "", true)) {
+      logMqttPublishFailure("suppression de la disponibilité Nano retenue", 0, mqttClient);
+    }
+    _nanoAvailabilityPublished = false;
+    if (!mqttClient->publish(availabilityTopic, "", true)) {
+      logMqttPublishFailure("suppression de la disponibilité retenue", 0, mqttClient);
+    }
+    if (!mqttClient->publish(availabilityTopic, OnlineAvailabilityPayload, false)) {
+      logMqttPublishFailure("publication disponibilité", sizeof(OnlineAvailabilityPayload) - 1,
+                            mqttClient);
+    }
+    _lastAvailabilityPublishMs = millis();
 #ifdef CFG_ON_SERIAL
     Serial.println("MQTT connected");
 #endif
@@ -146,6 +185,27 @@ bool HomeAssistantMQTT::connected()
   return mqttClient != nullptr && mqttClient->connected();
 }
 
+void HomeAssistantMQTT::setNanoAvailable(bool available)
+{
+  if (!connected()) return;
+
+  const unsigned long now = millis();
+  if (_nanoAvailabilityPublished && available == _nanoAvailable &&
+      now - _lastNanoAvailabilityPublishMs < AvailabilityHeartbeatIntervalMs) {
+    return;
+  }
+
+  const char* payload = available ? "{\"state\":\"online\"}" : "{\"state\":\"offline\"}";
+  if (!mqttClient->publish(nanoAvailabilityTopic, payload, true)) {
+    logMqttPublishFailure("publication disponibilité Nano", strlen(payload), mqttClient);
+    return;
+  }
+
+  _nanoAvailable = available;
+  _nanoAvailabilityPublished = true;
+  _lastNanoAvailabilityPublishMs = now;
+}
+
 void HomeAssistantMQTT::publishDiscovery(const HaEntityConfig& entity)
 {
   if (mqttClient == nullptr || entity.component == nullptr || entity.name == nullptr)
@@ -165,6 +225,13 @@ void HomeAssistantMQTT::publishDiscovery(const HaEntityConfig& entity)
   JsonObject availability = document["availability"].to<JsonArray>().add<JsonObject>();
   availability["topic"] = static_cast<const char*>(availabilityTopic);
   availability["value_template"] = "{{ value_json.state }}";
+  if (dependsOnNanoTelemetry(entity)) {
+    JsonObject nanoAvailability =
+        document["availability"].as<JsonArray>().add<JsonObject>();
+    nanoAvailability["topic"] = static_cast<const char*>(nanoAvailabilityTopic);
+    nanoAvailability["value_template"] = "{{ value_json.state }}";
+    document["availability_mode"] = "all";
+  }
 
   JsonObject device = document["device"].to<JsonObject>();
   device["identifiers"].to<JsonArray>().add(DeviceName.c_str());
@@ -182,6 +249,10 @@ void HomeAssistantMQTT::publishDiscovery(const HaEntityConfig& entity)
   if (hasText(entity.deviceClass)) document["device_class"] = entity.deviceClass;
   if (hasText(entity.stateClass)) document["state_class"] = entity.stateClass;
   if (entity.displayPrecision) document["suggested_display_precision"] = 2;
+  if (strcmp(entity.component, "sensor") == 0 ||
+      strcmp(entity.component, "binary_sensor") == 0) {
+    document["expire_after"] = EntityStateExpireAfterSeconds;
+  }
 
   const bool isBinary = strcmp(entity.component, "binary_sensor") == 0 ||
                         strcmp(entity.component, "switch") == 0;
@@ -199,7 +270,7 @@ void HomeAssistantMQTT::publishDiscovery(const HaEntityConfig& entity)
   document["state_topic"] = static_cast<const char*>(stateTopic);
   document["value_template"] = static_cast<const char*>(valueTemplate);
 
-  publishJson(mqttClient, topic, document, "publication découverte");
+  publishJson(mqttClient, topic, document, "publication découverte", true);
 
   if (entity.command && !mqttClient->subscribe(commandTopic)) {
     logMqttPublishFailure("abonnement commande", strlen(commandTopic), mqttClient);
@@ -243,7 +314,7 @@ bool HomeAssistantMQTT::sendValues(bool force)
         static_cast<const char*>(values[i].value);
   }
 
-  const bool sent = publishJson(mqttClient, stateTopic, document, "publication état");
+  const bool sent = publishJson(mqttClient, stateTopic, document, "publication état", false);
   if (sent) {
     valuesDirty = false;
   }

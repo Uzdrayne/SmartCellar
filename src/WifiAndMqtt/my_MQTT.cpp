@@ -11,6 +11,7 @@
 #include "Controller/ConfigurationLimits.h"
 #include "Data/ControllerData.h"
 #include "Controller/ControllerValidation.h"
+#include "SerialLink/SerialLink.h"
 #include "WifiAndMqtt/my_MQTT.h"
 
 namespace {
@@ -31,6 +32,7 @@ struct MqttSnapshot {
     StrctDataController data;
     CorrectedMeasurements measured;
     SafetyAlarmStatus alarm;
+    bool nanoMeasurementsAvailable;
 };
 
 using ValueFormatter = void (*)(const MqttSnapshot&, char*, size_t);
@@ -111,11 +113,14 @@ MqttSnapshot takeSnapshot() {
     xSemaphoreGive(DataMutex);
     snapshot.measured = GetCorrectedMeasurements(snapshot.data);
     snapshot.alarm = GetSafetyAlarmStatus();
+    snapshot.nanoMeasurementsAvailable =
+        GetSerialLinkSnapshot(millis()).measurementAvailable;
     return snapshot;
 }
 
 void updateValues(bool forcePublish) {
     const MqttSnapshot snapshot = takeSnapshot();
+    mqtt.setNanoAvailable(snapshot.nanoMeasurementsAvailable);
     char value[HAMQTT_ITEM_VALUE_SIZE];
     for (const MqttEntity& entity : Entities) {
         entity.format(snapshot, value, sizeof(value));

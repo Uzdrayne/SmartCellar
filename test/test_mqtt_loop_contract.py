@@ -54,6 +54,46 @@ class MqttLoopContractTests(unittest.TestCase):
             self.mqtt_library_source,
         )
 
+    def test_sensor_states_expire_and_are_not_retained(self):
+        self.assertIn("EntityStateExpireAfterSeconds = 600", self.mqtt_library_source)
+        self.assertIn("AvailabilityHeartbeatIntervalMs = 30000",
+                      self.mqtt_library_source)
+        self.assertIn('document["expire_after"] = EntityStateExpireAfterSeconds;',
+                      self.mqtt_library_source)
+        self.assertIn('mqttClient->publish(stateTopic, "", true)',
+                      self.mqtt_library_source)
+        self.assertIn('mqttClient->publish(availabilityTopic, "", true)',
+                      self.mqtt_library_source)
+        self.assertIn(
+            'mqttClient->publish(availabilityTopic, OnlineAvailabilityPayload, false)',
+            self.mqtt_library_source,
+        )
+        self.assertIn(
+            'publishJson(mqttClient, topic, document, "publication découverte", true);',
+            self.mqtt_library_source,
+        )
+        self.assertIn(
+            'publishJson(mqttClient, stateTopic, document, "publication état", false);',
+            self.mqtt_library_source,
+        )
+
+    def test_temperature_and_humidity_follow_nano_link_availability(self):
+        self.assertIn("GetSerialLinkSnapshot(millis()).measurementAvailable",
+                      self.mqtt_source)
+        self.assertIn("mqtt.setNanoAvailable(snapshot.nanoMeasurementsAvailable);",
+                      self.mqtt_source)
+        self.assertIn('snprintf(nanoAvailabilityTopic, sizeof(nanoAvailabilityTopic), '
+                      '"%s/nano/state", stateTopic);',
+                      self.mqtt_library_source)
+        self.assertIn('document["availability_mode"] = "all";',
+                      self.mqtt_library_source)
+        self.assertIn('strcmp(entity.name, "Temperature") == 0', self.mqtt_library_source)
+        self.assertIn('strcmp(entity.name, "Humidity") == 0', self.mqtt_library_source)
+        self.assertIn('strcmp(entity.component, "binary_sensor") == 0',
+                      self.mqtt_library_source)
+        self.assertIn('strstr(entity.name, "_Relay") != nullptr',
+                      self.mqtt_library_source)
+
 
 if __name__ == "__main__":
     unittest.main()
